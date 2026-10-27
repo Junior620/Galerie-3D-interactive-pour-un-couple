@@ -1,6 +1,6 @@
 {
   "titre": "Notre Musée",
-  "prenoms": { "lui": "Prénom1", "elle": "Prénom2" },
+  "prenoms": { "lui": "Christian", "elle": "Gabrielle" },
   "sousTitre": "Notre histoire, salle après salle",
   "musique": "assets/music/musique.mp3",
   "theme": "clair",
