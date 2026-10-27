@@ -10,6 +10,12 @@ Thumbs.db
 # Fichiers bruts (FBX Mixamo, etc.) avant conversion
 public/assets/raw/
 
+# Photos HEIC/HEIF d'origine : « npm run photos » les convertit en JPEG (publiés à leur place)
+*.heic
+*.HEIC
+*.heif
+*.HEIF
+
 # Le dépôt GitHub est PUBLIC : décommentez la ligne suivante pour ne pas
 # publier vos photos personnelles (le build local les inclura quand même).
 # public/photos/
