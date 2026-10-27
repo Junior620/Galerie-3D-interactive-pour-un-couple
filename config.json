@@ -1,0 +1,35 @@
+{
+  "titre": "Notre Musée",
+  "prenoms": { "lui": "Prénom1", "elle": "Prénom2" },
+  "sousTitre": "Notre histoire, salle après salle",
+  "musique": "assets/music/musique.mp3",
+  "theme": "clair",
+  "avatars": {
+    "lui": { "peau": "#8d5524", "cheveux": "#1b1b1b", "haut": "#2b3a55", "bas": "#1f1f1f", "coiffure": "courte", "tenue": "pantalon" },
+    "elle": { "peau": "#8d5524", "cheveux": "#1b1b1b", "haut": "#b3202a", "bas": "#1f1f1f", "coiffure": "tresses", "tenue": "jupe" }
+  },
+  "salles": [
+    { "id": "rencontre", "nom": "Notre rencontre" },
+    { "id": "voyages", "nom": "Nos voyages" },
+    { "id": "nous", "nom": "Nous", "cloisonCentrale": true }
+  ],
+  "photos": [
+    { "fichier": "photos/01.jpg", "salle": "rencontre", "titre": "Le premier jour", "date": "2020-02-14", "lieu": "Douala", "legende": "Le jour où tout a commencé.", "grandFormat": false },
+    { "fichier": "photos/02.jpg", "salle": "rencontre", "titre": "Premier café", "date": "2020-03-02", "lieu": "Douala", "legende": "Deux cafés, trois heures de discussion." },
+    { "fichier": "photos/03.jpg", "salle": "rencontre", "titre": "Balade au bord de l'eau", "date": "2020-04-18", "lieu": "Douala", "legende": "On ne voyait pas le temps passer." },
+    { "fichier": "photos/04.jpg", "salle": "rencontre", "titre": "Notre premier concert", "date": "2020-06-21", "lieu": "Yaoundé", "legende": "La musique, le début de tout.", "grandFormat": true },
+    { "fichier": "photos/05.jpg", "salle": "rencontre", "titre": "Fous rires", "date": "2020-08-09", "lieu": "Kribi", "legende": "Impossible de garder notre sérieux." },
+    { "fichier": "photos/06.jpg", "salle": "rencontre", "titre": "Le premier Noël", "date": "2020-12-25", "lieu": "Bafoussam", "legende": "Premières fêtes ensemble." },
+    { "fichier": "photos/07.jpg", "salle": "voyages", "titre": "Face à l'océan", "date": "2021-04-03", "lieu": "Kribi", "legende": "Notre premier grand voyage.", "grandFormat": true },
+    { "fichier": "photos/08.jpg", "salle": "voyages", "titre": "Sur la route", "date": "2021-04-05", "lieu": "Limbé", "legende": "Les fenêtres ouvertes, la musique à fond." },
+    { "fichier": "photos/09.jpg", "salle": "voyages", "titre": "Sous la pluie", "date": "2022-05-14", "lieu": "Paris", "legende": "Un parapluie pour deux." },
+    { "fichier": "photos/10.jpg", "salle": "voyages", "titre": "Couleurs d'ailleurs", "date": "2022-11-20", "lieu": "Dakar", "legende": "Le soleil couchant sur la mer." },
+    { "fichier": "photos/11.jpg", "salle": "voyages", "titre": "Lever de soleil", "date": "2023-01-07", "lieu": "Buéa", "legende": "Réveillés à 4 h pour ce moment." },
+    { "fichier": "photos/12.jpg", "titre": "Week-end improvisé", "date": "2023-03-18", "lieu": "Ebolowa", "legende": "Sans salle : placée automatiquement par date." },
+    { "fichier": "photos/13.jpg", "salle": "nous", "titre": "Lui", "date": "2023-06-10", "lieu": "Douala", "legende": "Grand portrait sur la cloison centrale.", "grandFormat": true },
+    { "fichier": "photos/14.jpg", "salle": "nous", "titre": "Elle", "date": "2023-06-10", "lieu": "Douala", "legende": "Grand portrait sur la cloison centrale.", "grandFormat": true },
+    { "fichier": "photos/15.jpg", "salle": "nous", "titre": "Les fiançailles", "date": "2023-12-16", "lieu": "Douala", "legende": "Elle a dit oui." },
+    { "fichier": "photos/16.jpg", "salle": "nous", "titre": "Notre maison", "date": "2024-09-01", "lieu": "Douala", "legende": "Nos clés, notre chez-nous." },
+    { "fichier": "photos/17.jpg", "titre": "Aujourd'hui", "date": "2025-02-14", "lieu": "Douala", "legende": "Et l'histoire continue…" }
+  ]
+}

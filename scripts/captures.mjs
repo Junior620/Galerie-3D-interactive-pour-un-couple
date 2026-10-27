@@ -123,6 +123,19 @@ const SCENARIOS = {
     await wait(9000);
     await shot(page, `visite-${vp}`);
   },
+  async erreur(page, vp) {
+    // Config volontairement invalide, servie à la place de config.json
+    await page.route('**/config.json', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ titre: '', prenoms: { lui: 'A' }, salles: [{ id: 'a', nom: 'A' }], photos: [{ fichier: 'photos/x.jpg', salle: 'b', date: '2020-13-45' }] }),
+      }),
+    );
+    await page.reload();
+    await wait(2000);
+    await shot(page, `erreur-config-${vp}`);
+    await page.unroute('**/config.json');
+  },
   async vertical(page, vp) {
     if (vp !== 'bureau') return;
     await page.goto(withParams(baseUrl, 'format=9x16'));

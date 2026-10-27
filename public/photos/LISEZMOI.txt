@@ -1,0 +1,4 @@
+Déposez ici vos photos (JPG, PNG, WebP, AVIF).
+Référencez-les dans config.json, par exemple : "fichier": "photos/01.jpg"
+Puis lancez : npm run photos   (versions optimisées dans photos/optimisees/)
+Les fichiers HEIC d'iPhone doivent d'abord être exportés en JPEG.

@@ -23,15 +23,29 @@ export interface MuseumMaterials {
 
 let cache: MuseumMaterials | null = null;
 
-export function getMaterials(anisotropy = 4): MuseumMaterials {
+/** Thème « sombre » : murs anthracite, sol assombri, cloison claire (inversion). */
+export function getMaterials(anisotropy = 4, theme: 'clair' | 'sombre' = 'clair'): MuseumMaterials {
   if (cache) return cache;
+  const m = buildMaterials(anisotropy);
+  if (theme === 'sombre') {
+    m.wall.color.set(0x2d2e32);
+    m.plinth.color.set(0x1d1e21);
+    m.floor.color.set(0x7c7872);
+    m.partition.color.set(0xe9e5dd);
+    m.ceiling.color.set(0x111113);
+  }
+  cache = m;
+  return m;
+}
+
+function buildMaterials(anisotropy: number): MuseumMaterials {
 
   const floorTex = concreteTexture();
   floorTex.anisotropy = anisotropy;
   const woodTex = woodTexture();
   woodTex.anisotropy = anisotropy;
 
-  cache = {
+  return {
     wall: new THREE.MeshStandardMaterial({ color: 0xf6f4f0, roughness: 0.92 }),
     partition: new THREE.MeshStandardMaterial({ color: 0x34363a, roughness: 0.85 }),
     floor: new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.42, metalness: 0.0, envMapIntensity: 0.9 }),
@@ -47,7 +61,6 @@ export function getMaterials(anisotropy = 4): MuseumMaterials {
     frameWhite: new THREE.MeshStandardMaterial({ color: 0xf2f1ee, roughness: 0.5 }),
     mat: new THREE.MeshStandardMaterial({ color: 0xfbf9f4, roughness: 0.95 }),
   };
-  return cache;
 }
 
 /** Béton ciré clair : bruit fin + taches douces + traces de lissage. */

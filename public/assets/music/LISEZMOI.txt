@@ -1,0 +1,4 @@
+Musique de fond facultative (MP3, OGG ou M4A), par exemple musique.mp3,
+référencée dans config.json : "musique": "assets/music/musique.mp3"
+Sans fichier, une ambiance douce est générée en direct par le navigateur.
+Utilisez une musique dont vous avez les droits de diffusion.

@@ -1,0 +1,4 @@
+Modèles 3D facultatifs des avatars (.glb).
+Sans fichier ici, le musée utilise ses avatars procéduraux (aucun téléchargement nécessaire).
+Pour utiliser un modèle : ajoutez "modele": "assets/models/lui.glb" dans config.json > avatars > lui.
+Voir README.md, section « Avatars 3D ».

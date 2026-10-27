@@ -12,6 +12,7 @@ export interface MuseumTexts {
   titre: string;
   sousTitre: string;
   prenoms: string;
+  theme: 'clair' | 'sombre';
 }
 
 export interface Museum {
@@ -156,12 +157,14 @@ export function buildMuseum(layout: MuseumLayout, mats: MuseumMaterials, texts: 
   }
 
   // --- Textes muraux ---
-  const dark = '#1d1c1a';
+  const sombre = texts.theme === 'sombre';
+  const dark = sombre ? '#efebe4' : '#1d1c1a';
+  const soft = sombre ? '#b7b0a6' : '#6f6a64';
   const title = createWallText(
     [
       { text: texts.titre, size: 0.3, font: FONT_SERIF, weight: 300, color: dark },
-      { text: texts.prenoms, size: 0.15, font: FONT_SERIF, style: 'italic', color: '#6d5f50', spaceBefore: 0.02 },
-      { text: texts.sousTitre, size: 0.065, font: FONT_SANS, weight: 500, color: '#6f6a64', tracking: 0.18, uppercase: true, spaceBefore: 0.07 },
+      { text: texts.prenoms, size: 0.15, font: FONT_SERIF, style: 'italic', color: sombre ? '#d8c6b0' : '#6d5f50', spaceBefore: 0.02 },
+      { text: texts.sousTitre, size: 0.065, font: FONT_SANS, weight: 500, color: soft, tracking: 0.18, uppercase: true, spaceBefore: 0.07 },
     ],
     5.2,
     1.9,
@@ -174,7 +177,7 @@ export function buildMuseum(layout: MuseumLayout, mats: MuseumMaterials, texts: 
     const room = layout.rooms[l.room];
     const m = createWallText(
       [
-        { text: `Salle ${l.room + 1}`, size: 0.17, font: FONT_SANS, weight: 600, color: '#77716a', tracking: 0.3, uppercase: true },
+        { text: `Salle ${l.room + 1}`, size: 0.17, font: FONT_SANS, weight: 600, color: soft, tracking: 0.3, uppercase: true },
         { text: room.nom, size: 0.42, font: FONT_SERIF, weight: 400, color: dark, spaceBefore: 0.03 },
       ],
       3.2,
@@ -190,8 +193,8 @@ export function buildMuseum(layout: MuseumLayout, mats: MuseumMaterials, texts: 
     if (!r.partition || r.frames.some((f) => f.wall === 'P-arriere')) continue;
     const m = createWallText(
       [
-        { text: texts.prenoms, size: 0.36, font: FONT_SERIF, style: 'italic', color: '#f1ede6' },
-        { text: r.nom, size: 0.14, font: FONT_SANS, weight: 500, color: '#b9b4ac', tracking: 0.3, uppercase: true, spaceBefore: 0.06 },
+        { text: texts.prenoms, size: 0.36, font: FONT_SERIF, style: 'italic', color: sombre ? '#1d1c1a' : '#f1ede6' },
+        { text: r.nom, size: 0.14, font: FONT_SANS, weight: 500, color: sombre ? '#6f6a64' : '#b9b4ac', tracking: 0.3, uppercase: true, spaceBefore: 0.06 },
       ],
       Math.min(4, r.partition.width - 0.6),
       1.1,
