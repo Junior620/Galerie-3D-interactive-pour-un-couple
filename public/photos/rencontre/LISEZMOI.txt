@@ -1,0 +1,9 @@
+Salle « Notre rencontre »
+Déposez ici les photos et vidéos de cette salle : elles y seront exposées automatiquement.
+
+Astuces :
+- Nommez vos fichiers pour avoir un titre et une date : « 2020-02-14 Le premier jour.jpg »
+  (sinon la date de prise de vue EXIF est utilisée).
+- Vidéos acceptées : MP4 (conseillé, H.264), WebM, MOV. Gardez-les courtes et légères (moins de 30 Mo).
+- Pour un lieu ou une légende, déclarez le fichier dans config.json (facultatif).
+- Puis lancez « npm run photos » et « npm run build ».

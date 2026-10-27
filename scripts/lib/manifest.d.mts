@@ -1,7 +1,9 @@
 /** Types du manifeste (utilisé par vite.config.ts). */
 export interface ManifestPhoto {
-  largeur: number;
-  hauteur: number;
+  type: 'image' | 'video';
+  largeur: number | null;
+  hauteur: number | null;
+  taille?: number;
   orientationExif: number;
   date: string | null;
   variantes: { hd?: string; md?: string; mini?: string };
@@ -15,7 +17,9 @@ export interface Manifest {
 }
 
 export declare const IMAGE_EXT: Set<string>;
+export declare const VIDEO_EXT: Set<string>;
 export declare const OPT_DIR: string;
 export declare function buildManifest(root: string): Promise<Manifest>;
 export declare function listPhotos(photosDir: string): string[];
+export declare function listVideos(photosDir: string): string[];
 export declare function readConfigSafe(configPath: string): unknown;

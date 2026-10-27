@@ -53,7 +53,10 @@ export class PhotoTextures {
    * images de remplacement, miniatures, puis pleine résolution de la salle de départ.
    */
   async preload(frames: FrameObject[], startRoom: number): Promise<void> {
-    this.slots = frames.map((frame) => ({ frame, level: 0, mini: null, full: null, loading: false, failed: false }));
+    // Les vidéos sont gérées à part (VideoWall).
+    this.slots = frames
+      .filter((frame) => frame.photo.type !== 'video')
+      .map((frame) => ({ frame, level: 0, mini: null, full: null, loading: false, failed: false }));
     this.currentRoom = startRoom;
     const jobs: Promise<void>[] = [];
     for (const slot of this.slots) {

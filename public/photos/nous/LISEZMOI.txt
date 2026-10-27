@@ -1,0 +1,9 @@
+Salle « Nous » (salle à cloison centrale)
+Déposez ici les photos et vidéos de cette salle : elles y seront exposées automatiquement.
+
+Les deux grands portraits de la cloison sont choisis automatiquement : les photos marquées
+"grandFormat": true dans config.json, sinon les premières photos en portrait de ce dossier.
+Pour choisir vous-mêmes, déclarez-les dans config.json, par exemple :
+  { "fichier": "photos/nous/christian.jpg", "titre": "Christian", "grandFormat": true }
+
+Vidéos acceptées : MP4 (conseillé, H.264), WebM, MOV. Puis « npm run photos » et « npm run build ».

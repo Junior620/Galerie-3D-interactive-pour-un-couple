@@ -1,4 +1,10 @@
-Déposez ici vos photos (JPG, PNG, WebP, AVIF).
-Référencez-les dans config.json, par exemple : "fichier": "photos/01.jpg"
-Puis lancez : npm run photos   (versions optimisées dans photos/optimisees/)
+Un dossier par salle : déposez vos photos et vidéos dans rencontre/, voyages/ ou nous/.
+Elles y sont exposées automatiquement, sans rien déclarer (titre et date tirés du nom du fichier ou de l'EXIF).
+Les fichiers posés directement ici (hors dossier) sont répartis entre les salles selon leur date.
+
+config.json reste utile pour ajouter un titre, un lieu, une légende ou un grand format :
+  { "fichier": "photos/voyages/kribi.jpg", "titre": "Face à l'océan", "lieu": "Kribi", "grandFormat": true }
+
+Ensuite : npm run photos  (versions optimisées dans photos/optimisees/), puis npm run build.
 Les fichiers HEIC d'iPhone doivent d'abord être exportés en JPEG.
+Le dossier d'une nouvelle salle (ajoutée dans config.json) est créé par « npm run photos ».

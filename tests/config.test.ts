@@ -97,14 +97,71 @@ describe('normalisation', () => {
       version: 1,
       fichiers: {},
       photos: {
-        'photos/01.jpg': { largeur: 1000, hauteur: 1600, orientationExif: 6, date: null, variantes: { hd: 'photos/optimisees/01.webp', md: 'photos/optimisees/01-1024.webp', mini: 'photos/optimisees/01-mini.webp' } },
+        'photos/rencontre/01.jpg': { type: 'image', largeur: 1000, hauteur: 1600, orientationExif: 6, date: null, variantes: { hd: 'photos/optimisees/rencontre__01.webp', md: 'photos/optimisees/rencontre__01-1024.webp', mini: 'photos/optimisees/rencontre__01-mini.webp' } },
       },
     };
-    const desktop = normalize(config, manifest, [], profile).photos.find((p) => p.fichier === 'photos/01.jpg')!;
+    const desktop = normalize(config, manifest, [], profile).photos.find((p) => p.fichier === 'photos/rencontre/01.jpg')!;
     expect(desktop.placeholder).toBe(false);
     expect(desktop.orientation).toBe('portrait');
-    expect(desktop.sources?.full).toBe('photos/optimisees/01.webp');
-    const phone = normalize(config, manifest, [], { ...profile, mobile: true, textureSize: 1024 }).photos.find((p) => p.fichier === 'photos/01.jpg')!;
-    expect(phone.sources?.full).toBe('photos/optimisees/01-1024.webp');
+    expect(desktop.titre).toBe('Le premier jour'); // métadonnées de config.json conservées
+    expect(desktop.sources?.full).toBe('photos/optimisees/rencontre__01.webp');
+    const phone = normalize(config, manifest, [], { ...profile, mobile: true, textureSize: 1024 }).photos.find((p) => p.fichier === 'photos/rencontre/01.jpg')!;
+    expect(phone.sources?.full).toBe('photos/optimisees/rencontre__01-1024.webp');
+  });
+});
+
+describe('dossiers de salle et vidéos', () => {
+  const img = (largeur: number, hauteur: number, date: string | null = null) => ({ type: 'image' as const, largeur, hauteur, orientationExif: 1, date, variantes: {} });
+  const vid = () => ({ type: 'video' as const, largeur: null, hauteur: null, orientationExif: 1, date: null, variantes: {} });
+  const manifest: Manifest = {
+    version: 1,
+    fichiers: {},
+    photos: {
+      'photos/rencontre/2020-02-14 Premier café.jpg': img(1600, 1200),
+      'photos/voyages/IMG_20210403_101500.jpg': img(1200, 1600),
+      'photos/voyages/plage.jpg': img(1600, 900, '2021-08-01'),
+      'photos/nous/03 - Notre danse.mp4': vid(),
+      'photos/Notre rencontre/souvenir.jpg': img(1000, 1000),
+      'photos/divers.jpg': img(1000, 1000),
+    },
+  };
+  const { config } = validateConfig(example);
+  const musee = normalize(config, manifest, [], profile, new Map([['photos/nous/03 - Notre danse.mp4', 9 / 16]]));
+  const by = (f: string) => musee.photos.find((p) => p.fichier === f)!;
+
+  it('expose les fichiers déposés dans les dossiers, sans les déclarer', () => {
+    expect(musee.photos.length).toBe(6);
+    // Les exemples de config.json sans fichier ne sont plus affichés.
+    expect(musee.photos.some((p) => p.placeholder)).toBe(false);
+  });
+
+  it('range chaque fichier dans la salle de son dossier (id ou nom de salle)', () => {
+    expect(by('photos/rencontre/2020-02-14 Premier café.jpg').salle).toBe('rencontre');
+    expect(by('photos/voyages/plage.jpg').salle).toBe('voyages');
+    expect(by('photos/nous/03 - Notre danse.mp4').salle).toBe('nous');
+    expect(by('photos/Notre rencontre/souvenir.jpg').salle).toBe('rencontre');
+    expect(by('photos/divers.jpg').salle).not.toBe(''); // hors dossier : répartie automatiquement
+  });
+
+  it('tire titre et date du nom du fichier', () => {
+    const cafe = by('photos/rencontre/2020-02-14 Premier café.jpg');
+    expect(cafe.titre).toBe('Premier café');
+    expect(cafe.dateLabel).toBe('14 février 2020');
+    const camera = by('photos/voyages/IMG_20210403_101500.jpg');
+    expect(camera.titre).toBe('Souvenir du 3 avril 2021');
+    expect(by('photos/voyages/plage.jpg').titre).toBe('Plage');
+  });
+
+  it('reconnaît les vidéos et utilise leur format réel', () => {
+    const v = by('photos/nous/03 - Notre danse.mp4');
+    expect(v.type).toBe('video');
+    expect(v.titre).toBe('Notre danse');
+    expect(v.orientation).toBe('portrait');
+    expect(v.sources?.full).toBe('photos/nous/03 - Notre danse.mp4');
+  });
+
+  it('trie chronologiquement dans chaque salle', () => {
+    const voyages = musee.rooms.find((r) => r.id === 'voyages')!.photos.map((p) => p.fichier);
+    expect(voyages).toEqual(['photos/voyages/IMG_20210403_101500.jpg', 'photos/voyages/plage.jpg']);
   });
 });

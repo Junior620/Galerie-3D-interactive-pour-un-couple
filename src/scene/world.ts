@@ -3,6 +3,7 @@ import type { Musee } from '../config/types';
 import { buildFrames, type FrameObject } from '../gallery/frames';
 import { frameDims } from '../gallery/frameSize';
 import { PhotoTextures } from '../gallery/textures';
+import { VideoWall } from '../gallery/videos';
 import type { DeviceProfile } from '../utils/device';
 import { computeLayout, roomIndexAt, type MuseumLayout, type RoomSpec } from './layout';
 import { setupLighting, type Lighting } from './lighting';
@@ -24,6 +25,7 @@ export interface World {
   /** Cadres, dans l'ordre de visite */
   frames: FrameObject[];
   textures: PhotoTextures;
+  videos: VideoWall;
   spots: SpotPool;
   roomAt(x: number): number;
 }
@@ -73,6 +75,7 @@ export async function buildWorld(viewport: HTMLElement, musee: Musee, profile: D
   const textures = new PhotoTextures(renderer, profile, manager, waiting);
   const startRoom = roomIndexAt(layout, layout.spawn.position.x);
   await textures.preload(frames, startRoom);
+  const videos = new VideoWall(frames, profile);
 
   const spots = new SpotPool(
     scene,
@@ -91,6 +94,7 @@ export async function buildWorld(viewport: HTMLElement, musee: Musee, profile: D
     museum,
     frames,
     textures,
+    videos,
     spots,
     roomAt: (x) => roomIndexAt(layout, x),
   };

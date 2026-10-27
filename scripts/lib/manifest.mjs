@@ -12,6 +12,7 @@ import exifr from 'exifr';
 import sharp from 'sharp';
 
 export const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.avif', '.tif', '.tiff']);
+export const VIDEO_EXT = new Set(['.mp4', '.m4v', '.webm', '.mov', '.ogv']);
 export const OPT_DIR = 'optimisees';
 
 /** Nom de base des variantes optimisées d'une photo (sous-dossiers aplatis). */
@@ -25,21 +26,38 @@ export const VARIANTS = {
   mini: (base) => `${base}-mini.webp`,
 };
 
-/** Liste récursive des images de public/photos (hors dossier des variantes). */
-export function listPhotos(photosDir) {
+/** Liste récursive des fichiers de public/photos ayant l'une des extensions (hors variantes). */
+function listFiles(photosDir, exts) {
   if (!existsSync(photosDir)) return [];
   const out = [];
   const walk = (dir) => {
     for (const name of readdirSync(dir)) {
+      if (name.startsWith('.')) continue;
       const full = join(dir, name);
       const st = statSync(full);
       if (st.isDirectory()) {
-        if (name !== OPT_DIR && !name.startsWith('.')) walk(full);
-      } else if (IMAGE_EXT.has(extname(name).toLowerCase())) out.push(full);
+        if (name !== OPT_DIR) walk(full);
+      } else if (exts.has(extname(name).toLowerCase())) out.push(full);
     }
   };
   walk(photosDir);
-  return out.sort();
+  return out.sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
+}
+
+/** Images de public/photos et de ses sous-dossiers (un dossier par salle). */
+export function listPhotos(photosDir) {
+  return listFiles(photosDir, IMAGE_EXT);
+}
+
+/** Vidéos de public/photos et de ses sous-dossiers. */
+export function listVideos(photosDir) {
+  return listFiles(photosDir, VIDEO_EXT);
+}
+
+/** Formats déposés mais non lisibles sur le web (HEIC d'iPhone, vidéos AVI…). */
+export const UNSUPPORTED_EXT = new Set(['.heic', '.heif', '.dng', '.avi', '.mkv', '.wmv', '.3gp', '.mts']);
+export function listUnsupported(photosDir) {
+  return listFiles(photosDir, UNSUPPORTED_EXT);
 }
 
 const cache = new Map();
@@ -106,7 +124,14 @@ export async function buildManifest(root) {
       // Une variante plus ancienne que l'original est ignorée (photo remplacée).
       if (existsSync(p) && statSync(p).mtimeMs >= srcTime - 1000) variantes[k] = `photos/${OPT_DIR}/${name(base)}`;
     }
-    photos[`photos/${relPhotos}`] = { ...meta, variantes };
+    photos[`photos/${relPhotos}`] = { type: 'image', ...meta, variantes };
+  }
+
+  // Vidéos : copiées telles quelles ; le navigateur lit leurs dimensions
+  // (rotation des vidéos de téléphone comprise) au chargement.
+  for (const file of listVideos(photosDir)) {
+    const relPhotos = relative(photosDir, file).replace(/\\/g, '/');
+    photos[`photos/${relPhotos}`] = { type: 'video', largeur: null, hauteur: null, orientationExif: 1, date: null, taille: statSync(file).size, variantes: {} };
   }
 
   // Fichiers optionnels référencés par config.json (musique, modèles 3D)

@@ -267,6 +267,14 @@ kbd {
   pointer-events: none;
 }
 
+/* Téléphone en mode photo : la photo prend toute la hauteur libre */
+@media (max-width: 759px) {
+  .hud[data-mode='photo'] .hud-boutons {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
 /* Contrôles tactiles : boutons d'action à droite */
 .hud.tactile .hud-actions {
   position: absolute;
@@ -525,6 +533,23 @@ kbd {
   margin: 4px 0 0;
   font: 400 16px/1.6 var(--sans);
   color: var(--encre);
+}
+.pp-son {
+  appearance: none;
+  align-self: flex-start;
+  border: 1px solid rgba(29, 28, 26, 0.22);
+  background: transparent;
+  color: var(--encre);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font: 500 13px/1 var(--sans);
+  cursor: pointer;
+}
+.pp-son:hover {
+  background: rgba(29, 28, 26, 0.06);
+}
+.pp-son[hidden] {
+  display: none;
 }
 .pp-nav {
   display: flex;

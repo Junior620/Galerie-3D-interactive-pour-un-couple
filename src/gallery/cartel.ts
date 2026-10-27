@@ -46,7 +46,7 @@ export function createCartel(photo: Photo, anisotropy: number, scale = 1): THREE
   }
 
   // Date et lieu
-  const meta = [photo.dateLabel, photo.lieu].filter(Boolean).join('  ·  ');
+  const meta = [photo.type === 'video' ? '▶ Vidéo' : '', photo.dateLabel, photo.lieu].filter(Boolean).join('  ·  ');
   if (meta) {
     ctx.fillStyle = '#4f4a44';
     let ms = 31;

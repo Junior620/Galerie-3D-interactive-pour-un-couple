@@ -150,6 +150,38 @@ const SCENARIOS = {
     console.log(`  Mode après le clic : ${mode}`);
     await shot(page, `clic-photo-${vp}`);
   },
+  /** Vidéo : lecture sans le son dans le cadre, puis avec le son en mode photo. */
+  async video(page, vp) {
+    await waitReady(page);
+    await enter(page);
+    const idx = await page.evaluate(() => window.__musee.app.world.frames.findIndex((f) => f.photo.type === 'video'));
+    if (idx < 0) return console.log('  (aucune vidéo dans le musée)');
+    const room = await page.evaluate((i) => window.__musee.app.world.frames[i].room, idx);
+    await cmd(page, 'salle', room);
+    await wait(3500);
+    const inFrame = await page.evaluate((i) => {
+      const f = window.__musee.app.world.frames[i];
+      const map = f.photoMesh.material.map;
+      return { videoTexture: !!map?.isVideoTexture, playing: map?.image ? !map.image.paused : false, muted: map?.image?.muted };
+    }, idx);
+    console.log(`  Dans le cadre : ${JSON.stringify(inFrame)}`);
+    if (!inFrame.videoTexture || !inFrame.playing || !inFrame.muted) consoleIssues.push(`[video/${vp}] la vidéo ne joue pas sans le son dans son cadre`);
+    await shot(page, `video-salle-${vp}`);
+    await cmd(page, 'photo', idx);
+    await wait(2500);
+    const big = await page.evaluate((i) => {
+      const v = window.__musee.app.world.frames[i].photoMesh.material.map.image;
+      const btn = document.querySelector('.pp-son');
+      return { playing: !v.paused, muted: v.muted, time: Math.round(v.currentTime * 10) / 10, bouton: btn && !btn.hidden ? btn.textContent.trim() : null };
+    }, idx);
+    console.log(`  En grand : ${JSON.stringify(big)}`);
+    if (!big.playing || big.muted || !big.bouton) consoleIssues.push(`[video/${vp}] la vidéo ne joue pas avec le son en mode photo`);
+    await shot(page, `video-photo-${vp}`);
+    await page.keyboard.press('Escape');
+    await wait(1500);
+    const after = await page.evaluate((i) => window.__musee.app.world.frames[i].photoMesh.material.map.image.muted, idx);
+    if (!after) consoleIssues.push(`[video/${vp}] la vidéo garde le son après le retour`);
+  },
   async assis(page, vp) {
     await waitReady(page);
     await enter(page);
@@ -280,7 +312,12 @@ async function main() {
           if (msg.type() === 'error') consoleIssues.push(`[${name}/${vpName}] console.error : ${msg.text()}`);
         });
         page.on('pageerror', (err) => consoleIssues.push(`[${name}/${vpName}] exception : ${err.message}`));
-        page.on('requestfailed', (req) => consoleIssues.push(`[${name}/${vpName}] requête échouée : ${req.url()}`));
+        page.on('requestfailed', (req) => {
+          const reason = req.failure()?.errorText ?? '';
+          // Une vidéo interrompt normalement ses requêtes (lecture des métadonnées, pause, saut) : ce n'est pas une erreur.
+          if (req.resourceType() === 'media' && reason.includes('ERR_ABORTED')) return;
+          consoleIssues.push(`[${name}/${vpName}] requête échouée (${reason}) : ${req.url()}`);
+        });
         page.on('response', (res) => {
           if (res.status() >= 400) consoleIssues.push(`[${name}/${vpName}] HTTP ${res.status()} : ${res.url()}`);
         });

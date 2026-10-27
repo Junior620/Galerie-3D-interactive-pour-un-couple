@@ -63,10 +63,11 @@ export interface ParsedDate {
   time: number;
 }
 
-/** Photo normalisée, prête à être exposée. */
+/** Photo (ou vidéo) normalisée, prête à être exposée. */
 export interface Photo {
-  /** Index dans config.photos (clé stable) */
+  /** Clé stable : index dans config.photos, puis fichiers trouvés dans les dossiers */
   index: number;
+  type: 'image' | 'video';
   fichier: string;
   salle: string;
   titre: string;
@@ -98,8 +99,12 @@ export interface Room {
 }
 
 export interface ManifestPhoto {
-  largeur: number;
-  hauteur: number;
+  /** Absent dans les manifestes générés avant la prise en charge des vidéos */
+  type?: 'image' | 'video';
+  /** null pour une vidéo (dimensions lues par le navigateur) */
+  largeur: number | null;
+  hauteur: number | null;
+  taille?: number;
   orientationExif: number;
   date: string | null;
   variantes: { hd?: string; md?: string; mini?: string };

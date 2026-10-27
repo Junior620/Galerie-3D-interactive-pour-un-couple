@@ -53,28 +53,43 @@ Ouvrez l'adresse affichée (par défaut http://localhost:5173). Sur un télépho
 
 Pendant `npm run dev`, toute modification de `config.json` ou de `public/photos/` recharge la page automatiquement.
 
-## 2. Ajouter vos photos
+## 2. Ajouter vos photos et vidéos
 
-1. Déposez vos photos dans **`public/photos/`** (JPG, PNG, WebP ou AVIF ; les sous-dossiers sont acceptés).
-2. Déclarez-les dans `config.json` (voir plus bas), par exemple `"fichier": "photos/01.jpg"`.
-3. Lancez l'optimisation :
+**Un dossier par salle** : déposez simplement vos fichiers dans le dossier de la salle, il n'y a rien à déclarer.
+
+```
+public/photos/rencontre/   → salle « Notre rencontre »
+public/photos/voyages/     → salle « Nos voyages »
+public/photos/nous/        → salle « Nous » (avec la cloison centrale)
+```
+
+- Le nom du dossier correspond à l'`id` de la salle (ou à son nom : `Notre rencontre/` fonctionne aussi). Le dossier d'une nouvelle salle ajoutée dans `config.json` est créé par `npm run photos`.
+- Un fichier posé directement dans `public/photos/`, hors dossier, est placé dans la salle dont la période est la plus proche de sa date.
+- **Photos** : JPG, PNG, WebP, AVIF, et HEIC/HEIF (converti automatiquement en JPEG, voir plus bas).
+- **Vidéos** : MP4 (conseillé, codec H.264), WebM, MOV. Elles jouent en boucle, sans le son, dans leur cadre (uniquement dans la salle où l'on se trouve, pour ménager la batterie). Cliquées, elles passent en grand **avec le son**, un bouton permet de le couper, et la musique de fond se baisse pendant ce temps.
+
+**Titre et date sans rien écrire** : ils sont tirés du nom du fichier, par exemple `2020-02-14 Le premier jour.jpg` donne la date « 14 février 2020 » et le titre « Le premier jour ». Une numérotation comme `03 - Plage.mp4` est ignorée dans le titre mais sert à l'ordre. Les noms automatiques des téléphones (`IMG_20210403_…`, `WhatsApp Image…`, `RUID…`) ne donnent pas de titre : la photo s'appelle alors « Souvenir du 3 avril 2021 » (date de prise de vue EXIF ou date du nom). Pour un vrai titre, un lieu, une légende ou un grand format, déclarez le fichier dans `config.json` (section 3).
+
+Puis lancez :
 
 ```bash
 npm run photos
 ```
 
 Ce script (sharp) :
+- convertit les photos **HEIC/HEIF** (iPhone, Samsung…) en JPEG à côté de l'original, avec leur date de prise de vue. Sous Windows, il utilise le décodeur intégré (extension « Extensions d'image HEIF » du Microsoft Store, généralement déjà présente) ; sous macOS, l'outil `sips`. Les `.heic` d'origine peuvent ensuite être supprimés ;
 - corrige l'orientation EXIF (photos de téléphone prises de côté) ;
 - crée dans `public/photos/optimisees/` une version WebP 2048 px (ordinateur), une version 1024 px (téléphone) et une miniature 320 px (chargée en premier) ;
+- signale les vidéos trop lourdes et les formats non lisibles sur le web (`.mov` HEVC d'iPhone, AVI…) ;
 - ne modifie jamais vos originaux, ne refait que ce qui a changé (`--force` pour tout régénérer, `--qualite=85` pour changer la qualité) et supprime les variantes devenues inutiles.
 
 Le site fonctionne aussi sans cette étape (il redimensionne alors les originaux dans le navigateur), mais il charge beaucoup plus vite avec.
 
 À savoir :
-- **Orientation** : le format (portrait, paysage, carré) est détecté à partir des dimensions réelles et de l'EXIF ; la taille du cadre s'y adapte.
-- **Date** : si une photo n'a pas de `date` dans `config.json`, la date de prise de vue EXIF est utilisée.
-- **Photo manquante** : une image de remplacement numérotée est affichée à sa place (rien ne plante). Sans aucune photo déclarée, une collection de démonstration est générée.
-- **HEIC (iPhone)** : non pris en charge. Exportez en JPEG (sur iPhone : Réglages → Appareil photo → Formats → « Le plus compatible »).
+- **Orientation** : le format (portrait, paysage, carré) est détecté à partir des dimensions réelles et de l'EXIF, et la taille du cadre s'y adapte. Pour une vidéo, le format est lu par le navigateur (rotation des vidéos de téléphone comprise).
+- **Date** : `date` de `config.json`, sinon date de prise de vue EXIF, sinon date contenue dans le nom du fichier. Dans chaque salle, les photos sont triées par date ; celles sans date suivent, dans l'ordre des noms de fichiers.
+- **Vidéos** : elles sont servies telles quelles (pas de conversion). Gardez-les courtes et légères : moins de 30 Mo conseillé, et GitHub refuse les fichiers de plus de 100 Mo. Pour compresser : [HandBrake](https://handbrake.fr), préréglage « Fast 1080p30 ». Les `.mov` HEVC d'iPhone ne sont pas lus par Chrome sur Android ou Windows : préférez MP4 (H.264), ou réglez l'iPhone sur « Le plus compatible ».
+- **Images de remplacement** : tant qu'aucune vraie photo n'est présente, des images numérotées sont affichées. Dès que vous déposez des fichiers, les exemples de `config.json` sans fichier disparaissent tout seuls.
 - **Après un ajout de photo**, relancez `npm run build` avant de redéployer : la liste des fichiers présents est calculée au build.
 
 > ⚠️ **Vie privée** : le dépôt GitHub est **public**. Si vous ne voulez pas publier vos photos sur GitHub, décommentez la ligne `public/photos/` dans `.gitignore` et déployez par glisser-déposer du dossier `dist/` (Netlify). Le site déployé reste visible par toute personne qui a le lien.
@@ -112,8 +127,8 @@ La taille de chaque salle s'adapte automatiquement au nombre et au format de ses
 
 | Champ | Description |
 | --- | --- |
-| `fichier` | Chemin dans `public/`, ex. `"photos/01.jpg"`. |
-| `salle` | `id` de la salle. **Facultatif** : sans salle, la photo est placée automatiquement dans la salle dont la période (dates des autres photos) est la plus proche. |
+| `fichier` | Chemin dans `public/`, ex. `"photos/voyages/kribi.jpg"` (photo ou vidéo). |
+| `salle` | `id` de la salle. **Facultatif** : par défaut, c'est le dossier du fichier qui décide ; hors dossier, la photo est placée dans la salle dont la période (dates des autres photos) est la plus proche. |
 | `titre`, `lieu`, `legende` | Textes du cartel et du panneau d'information. |
 | `date` | `2020-02-14`, `2020-02`, `2020` ou `14/02/2020`. Sert au tri chronologique. Affichée en français (« 14 février 2020 »). |
 | `grandFormat` | `true` : grand cadre avec un banc devant. Dans la salle à cloison, les grands formats vont sur la cloison. |
@@ -336,7 +351,7 @@ Captures d'écran automatiques (Playwright) en 1440×900 et 390×844, avec relev
 
 ```
 config.json                 tout le contenu personnalisable
-public/photos/              vos photos (+ optimisees/ générées par npm run photos)
+public/photos/<salle>/      vos photos et vidéos, un dossier par salle (+ optimisees/ générées par npm run photos)
 public/assets/models/       avatars .glb facultatifs
 public/assets/music/        musique de fond facultative
 scripts/optimize-photos.mjs npm run photos (sharp)

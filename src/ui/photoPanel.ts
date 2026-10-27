@@ -10,10 +10,13 @@ export class PhotoPanel {
   onPrev: () => void = () => {};
   onNext: () => void = () => {};
   onClose: () => void = () => {};
+  /** Bouton son d'une vidéo */
+  onSound: () => void = () => {};
   private readonly num: HTMLElement;
   private readonly title: HTMLElement;
   private readonly meta: HTMLElement;
   private readonly caption: HTMLElement;
+  private readonly sound: HTMLButtonElement;
 
   constructor(root: HTMLElement, touch: boolean) {
     this.el = document.createElement('aside');
@@ -24,6 +27,7 @@ export class PhotoPanel {
       <h2 class="pp-titre"></h2>
       <p class="pp-meta"></p>
       <p class="pp-legende"></p>
+      <button type="button" class="pp-son" data-pp="sound" hidden></button>
       <div class="pp-nav">
         <button type="button" class="pp-btn" data-pp="prev" aria-label="Photo précédente">←</button>
         <button type="button" class="bouton pp-retour" data-pp="close">Retour</button>
@@ -34,11 +38,15 @@ export class PhotoPanel {
     this.title = this.el.querySelector('.pp-titre')!;
     this.meta = this.el.querySelector('.pp-meta')!;
     this.caption = this.el.querySelector('.pp-legende')!;
+    this.sound = this.el.querySelector('.pp-son')!;
     this.el.addEventListener('click', (e) => {
-      const action = (e.target as HTMLElement).closest('[data-pp]')?.getAttribute('data-pp');
+      const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-pp]');
+      btn?.blur(); // garde les flèches du clavier pour la navigation
+      const action = btn?.getAttribute('data-pp');
       if (action === 'prev') this.onPrev();
       else if (action === 'next') this.onNext();
       else if (action === 'close') this.onClose();
+      else if (action === 'sound') this.onSound();
     });
     // Balayage horizontal sur le panneau (mobile)
     let sx = 0;
@@ -51,7 +59,9 @@ export class PhotoPanel {
   }
 
   show(photo: Photo, total: number, roomName: string): void {
-    this.num.textContent = `${String(photo.numero).padStart(2, '0')} / ${String(total).padStart(2, '0')} · ${roomName}`;
+    const kind = photo.type === 'video' ? ' · Vidéo' : '';
+    this.num.textContent = `${String(photo.numero).padStart(2, '0')} / ${String(total).padStart(2, '0')} · ${roomName}${kind}`;
+    this.sound.hidden = photo.type !== 'video';
     this.title.textContent = photo.titre;
     this.meta.textContent = [photo.dateLabel, photo.lieu].filter(Boolean).join(' · ');
     this.meta.hidden = !this.meta.textContent;
@@ -59,6 +69,12 @@ export class PhotoPanel {
     this.caption.hidden = !photo.legende;
     this.el.classList.add('visible');
     this.el.setAttribute('aria-hidden', 'false');
+  }
+
+  /** État du bouton son (vidéo). */
+  setSound(on: boolean): void {
+    this.sound.textContent = on ? '🔊  Son activé — couper' : '🔇  Son coupé — activer';
+    this.sound.setAttribute('aria-pressed', String(on));
   }
 
   hide(): void {

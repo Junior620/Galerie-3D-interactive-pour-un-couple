@@ -9,6 +9,7 @@ const VOLUME = 0.45;
 
 export class Music {
   muted = false;
+  private ducked = false;
   private started = false;
   private audio: HTMLAudioElement | null = null;
   private synth: AmbientSynth | null = null;
@@ -60,9 +61,21 @@ export class Music {
 
   setMuted(m: boolean): void {
     this.muted = m;
+    this.applyLevel(600);
+  }
+
+  /** Baisse la musique pendant qu'une vidéo joue avec le son. */
+  duck(on: boolean): void {
+    if (this.ducked === on) return;
+    this.ducked = on;
+    this.applyLevel(on ? 400 : 1200);
+  }
+
+  private applyLevel(ms: number): void {
     if (!this.started) return;
-    if (this.audio) this.fade(this.audio, m ? 0 : VOLUME, 600);
-    this.synth?.setVolume(m ? 0 : 1);
+    const level = this.muted ? 0 : this.ducked ? 0.12 : 1;
+    if (this.audio) this.fade(this.audio, level * VOLUME, ms);
+    this.synth?.setVolume(level);
   }
 
   private pause(): void {

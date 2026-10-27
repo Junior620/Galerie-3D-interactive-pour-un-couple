@@ -103,6 +103,12 @@ export class App {
     this.panel.onPrev = () => this.stepPhoto(-1);
     this.panel.onNext = () => this.stepPhoto(1);
     this.panel.onClose = () => this.closePhoto();
+    this.panel.onSound = () => world.videos.setSound(!world.videos.soundOn);
+    // Vidéo avec le son : la musique de fond se fait discrète.
+    world.videos.onSoundChange = (on) => {
+      this.music.duck(on);
+      this.panel.setSound(on);
+    };
 
     this.pointer.onRotate = (dx, dy) => {
       if (this.mode === 'libre' || this.mode === 'danse') this.director.third.rotate(dx, dy);
@@ -356,6 +362,7 @@ export class App {
     const room = this.world.layout.rooms[frame.room];
     this.panel.show(frame.photo, this.world.frames.length, `Salle ${room.index + 1} — ${room.nom}`);
     this.world.textures.ensureFull(frame);
+    this.world.videos.focus(frame);
     // Le panneau vient d'être affiché : on mesure la place qu'il occupe.
     const cov = this.panel.coverage(this.world.renderer.domElement.parentElement!);
     const { pos, look } = framePhoto(frame, this.world.camera, cov.right, cov.bottom);
@@ -372,6 +379,7 @@ export class App {
     if (this.mode !== 'photo') return;
     this.panel.hide();
     this.photoIndex = -1;
+    this.world.videos.focus(null);
     for (const a of Object.values(this.avatars)) a.object.visible = true;
     if (this.photoReturn === 'assis' && this.bench) {
       this.setMode('assis');
@@ -482,6 +490,7 @@ export class App {
     world.lighting.follow(p);
     world.spots.update(dt, this.mode === 'photo' ? world.camera.position : p);
     world.textures.update(world.roomAt(p.x));
+    world.videos.update(dt, world.roomAt(p.x), p);
     world.renderer.render(world.scene, world.camera);
   }
 }

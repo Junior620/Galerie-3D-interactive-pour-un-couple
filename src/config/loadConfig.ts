@@ -1,4 +1,5 @@
-import type { Manifest, Musee, MuseeConfig, ParsedDate, Photo, Room } from './types';
+import { dateFromFileName, isVideoFile, slug, titleFromFileName } from './fileNames';
+import type { Manifest, Musee, MuseeConfig, ParsedDate, Photo, PhotoConfig, Room } from './types';
 import { validateConfig } from './validate';
 import { formatDate, parseDate } from '../utils/dates';
 import type { DeviceProfile } from '../utils/device';
@@ -57,7 +58,46 @@ export async function loadMusee(profile: DeviceProfile): Promise<Musee> {
   } catch {
     warnings.push('Manifeste des fichiers indisponible : toutes les photos seront remplacées.');
   }
-  return normalize(config, manifest, warnings, profile);
+  // Format des vidéos : lu par le navigateur (il applique la rotation des vidéos de téléphone).
+  const videos = Object.entries(manifest.photos).filter(([, m]) => m.type === 'video').map(([f]) => f);
+  const aspects = new Map<string, number>();
+  await Promise.all(
+    videos.map(async (f) => {
+      const a = await probeVideoAspect(f);
+      if (a) aspects.set(f, a);
+      else warnings.push(`Vidéo non lisible par ce navigateur : public/${f} (préférez le format MP4 H.264).`);
+    }),
+  );
+  return normalize(config, manifest, warnings, profile, aspects);
+}
+
+/** Largeur / hauteur d'une vidéo (ou null si le navigateur ne sait pas la lire). */
+function probeVideoAspect(url: string): Promise<number | null> {
+  return new Promise((resolve) => {
+    const v = document.createElement('video');
+    let done = false;
+    const finish = (value: number | null) => {
+      if (done) return;
+      done = true;
+      v.removeAttribute('src');
+      v.load();
+      resolve(value);
+    };
+    v.preload = 'metadata';
+    v.muted = true;
+    v.addEventListener('loadedmetadata', () => finish(v.videoWidth && v.videoHeight ? v.videoWidth / v.videoHeight : null));
+    v.addEventListener('error', () => finish(null));
+    setTimeout(() => finish(null), 10000);
+    v.src = url;
+  });
+}
+
+/** « Souvenir du 14 février 2020 », « Vidéo d’août 2021 », « Souvenir de 2019 ». */
+function defaultTitle(prefix: string, date: ParsedDate | null): string {
+  if (!date) return prefix;
+  const label = formatDate(date);
+  if (date.jour) return `${prefix} du ${label}`;
+  return /^[aeiouéèêh]/i.test(label) ? `${prefix} d’${label}` : `${prefix} de ${label}`;
 }
 
 /** Format des images de remplacement (variés, mais stables d'un chargement à l'autre). */
@@ -67,13 +107,53 @@ function placeholderAspect(index: number, grand: boolean, partition: boolean): n
   return [3 / 2, 2 / 3, 4 / 3, 4 / 5, 3 / 2, 1, 3 / 4, 16 / 9][index % 8];
 }
 
-export function normalize(config: MuseeConfig, manifest: Manifest, warnings: string[], profile: DeviceProfile): Musee {
+export function normalize(
+  config: MuseeConfig,
+  manifest: Manifest,
+  warnings: string[],
+  profile: DeviceProfile,
+  videoAspects: Map<string, number> = new Map(),
+): Musee {
   const cloisonIds = new Set(config.salles.filter((s) => s.cloisonCentrale).map((s) => s.id));
-  let entries = config.photos;
+
+  // Un dossier par salle : public/photos/<id ou nom de la salle>/
+  const roomByFolder = new Map<string, string>();
+  for (const s of config.salles) {
+    roomByFolder.set(slug(s.nom), s.id);
+    roomByFolder.set(slug(s.id), s.id);
+  }
+  const folderRoom = (fichier: string): string => {
+    const parts = fichier.split('/');
+    return parts.length >= 3 ? roomByFolder.get(slug(parts[1])) ?? '' : '';
+  };
+
+  // Entrées de config.json, puis fichiers déposés dans les dossiers sans y être déclarés.
+  const files = Object.keys(manifest.photos);
+  const hasMedia = files.length > 0;
+  const listed = new Set(config.photos.map((p) => p.fichier));
+  const missing: string[] = [];
+  let entries: PhotoConfig[] = [];
+  for (const p of config.photos) {
+    if (p.fichier && !manifest.photos[p.fichier]) {
+      missing.push(p.fichier);
+      // De vraies photos existent : les entrées sans fichier (exemples) sont ignorées.
+      if (hasMedia) continue;
+    }
+    entries.push(p);
+  }
+  for (const f of files) if (!listed.has(f)) entries.push({ fichier: f });
+  if (missing.length) {
+    const list = missing.length > 4 ? `${missing.slice(0, 4).join(', ')}… (+${missing.length - 4})` : missing.join(', ');
+    warnings.push(
+      hasMedia
+        ? `${missing.length} entrée(s) de config.json sans fichier, ignorée(s) : ${list}.`
+        : `${missing.length} photo(s) introuvable(s) dans public/ : ${list}. Des images de remplacement sont affichées.`,
+    );
+  }
 
   // Aucune photo : on génère une collection de démonstration.
   if (!entries.length) {
-    warnings.push('Aucune photo dans config.json : des images de remplacement numérotées sont affichées.');
+    warnings.push('Aucune photo : des images de remplacement numérotées sont affichées.');
     entries = config.salles.flatMap((s) =>
       Array.from({ length: s.cloisonCentrale ? 5 : 6 }, (_, k) => ({
         fichier: '',
@@ -84,24 +164,30 @@ export function normalize(config: MuseeConfig, manifest: Manifest, warnings: str
     );
   }
 
-  const missing: string[] = [];
   const photos: Photo[] = entries.map((p, index) => {
     const info = p.fichier ? manifest.photos[p.fichier] : undefined;
-    if (p.fichier && !info) missing.push(p.fichier);
-    const date: ParsedDate | null = p.date ? parseDate(p.date) : info?.date ? parseDate(info.date) : null;
+    const video = info?.type === 'video' || (!!p.fichier && isVideoFile(p.fichier));
+    // Date : config.json, sinon EXIF, sinon nom du fichier.
+    const nameDate = p.fichier ? dateFromFileName(p.fichier) : null;
+    const date: ParsedDate | null = p.date ? parseDate(p.date) : info?.date ? parseDate(info.date) : nameDate ? parseDate(nameDate) : null;
     let sources: Photo['sources'] = null;
     let aspect = 1;
-    if (info) {
+    if (info && video) {
+      aspect = videoAspects.get(p.fichier) ?? 16 / 9;
+      sources = { full: p.fichier };
+    } else if (info && info.largeur && info.hauteur) {
       aspect = info.largeur / info.hauteur;
       const v = info.variantes;
       const full = profile.textureSize <= 1024 ? v.md ?? v.hd ?? p.fichier : v.hd ?? p.fichier;
       sources = { full, mini: v.mini };
     }
+    const titre = p.titre?.trim() || (p.fichier ? titleFromFileName(p.fichier) : '') || defaultTitle(video ? 'Vidéo' : 'Souvenir', date);
     return {
       index,
+      type: video ? 'video' : 'image',
       fichier: p.fichier,
-      salle: p.salle ?? '',
-      titre: p.titre?.trim() || `Photo ${index + 1}`,
+      salle: p.salle || folderRoom(p.fichier),
+      titre,
       date,
       dateLabel: formatDate(date),
       lieu: p.lieu?.trim() ?? '',
@@ -111,15 +197,11 @@ export function normalize(config: MuseeConfig, manifest: Manifest, warnings: str
       cadre: p.cadre ?? 'noir',
       aspect,
       orientation: 'paysage',
-      placeholder: !info,
+      placeholder: !sources,
       sources,
       numero: 0,
     };
   });
-  if (missing.length) {
-    const list = missing.length > 4 ? `${missing.slice(0, 4).join(', ')}… (+${missing.length - 4})` : missing.join(', ');
-    warnings.push(`${missing.length} photo(s) introuvable(s) dans public/ : ${list}. Des images de remplacement sont affichées.`);
-  }
 
   assignRooms(photos, config);
 
@@ -152,7 +234,7 @@ export function normalize(config: MuseeConfig, manifest: Manifest, warnings: str
   // Salles, ordre chronologique et couleur des cadres
   const rooms: Room[] = config.salles.map((s, index) => {
     const list = sortChrono(photos.filter((p) => p.salle === s.id));
-    for (const p of list) p.cadre = config.photos[p.index]?.cadre ?? s.cadre ?? (index % 2 === 0 ? 'noir' : 'blanc');
+    for (const p of list) p.cadre = entries[p.index]?.cadre ?? s.cadre ?? (index % 2 === 0 ? 'noir' : 'blanc');
     return { index, id: s.id, nom: s.nom, cloison: s.cloisonCentrale, photos: list };
   });
   const ordered = rooms.flatMap((r) => r.photos);
