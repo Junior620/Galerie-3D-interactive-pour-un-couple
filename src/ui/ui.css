@@ -80,6 +80,106 @@
   transform: translate(-50%, 0);
 }
 
+/* --- Panneau d'information d'une photo --- */
+.panneau-photo {
+  position: absolute;
+  top: calc(24px + var(--sat));
+  right: calc(24px + var(--sar));
+  bottom: calc(24px + var(--sab));
+  width: min(360px, 34vw);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+  padding: 36px 32px;
+  background: var(--papier-voile);
+  backdrop-filter: blur(14px);
+  border-radius: var(--rayon);
+  box-shadow: var(--ombre);
+  opacity: 0;
+  transform: translateX(24px);
+  pointer-events: none;
+  transition: opacity 0.45s ease, transform 0.45s ease;
+  z-index: 30;
+}
+.panneau-photo.visible {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.pp-num {
+  margin: 0;
+  font: 600 11px/1.4 var(--sans);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--encre-douce);
+}
+.pp-titre {
+  margin: 0;
+  font: italic 400 clamp(30px, 3vw, 42px) / 1.05 var(--serif);
+}
+.pp-meta {
+  margin: 0;
+  font: 500 14px/1.4 var(--sans);
+  color: var(--encre-douce);
+}
+.pp-legende {
+  margin: 4px 0 0;
+  font: 400 16px/1.6 var(--sans);
+  color: var(--encre);
+}
+.pp-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+.pp-btn {
+  appearance: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid rgba(29, 28, 26, 0.25);
+  background: transparent;
+  color: var(--encre);
+  font: 400 18px/1 var(--sans);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.pp-btn:hover {
+  background: rgba(29, 28, 26, 0.06);
+}
+.pp-retour {
+  flex: 1;
+}
+.pp-aide {
+  margin: 0;
+  font: 400 12px/1.4 var(--sans);
+  color: var(--encre-douce);
+}
+
+@media (max-width: 759px) {
+  .panneau-photo {
+    top: auto;
+    left: calc(12px + var(--sal));
+    right: calc(12px + var(--sar));
+    bottom: calc(12px + var(--sab));
+    width: auto;
+    max-height: 46vh;
+    overflow: auto;
+    padding: 20px 20px 16px;
+    gap: 8px;
+    transform: translateY(24px);
+  }
+  .pp-titre {
+    font-size: 28px;
+  }
+  .pp-legende {
+    font-size: 15px;
+    line-height: 1.5;
+  }
+}
+
 /* --- Écran d'erreur --- */
 .ecran-erreur {
   position: absolute;

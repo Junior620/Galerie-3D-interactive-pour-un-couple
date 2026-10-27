@@ -66,6 +66,18 @@ async function start() {
         app.sitOn(b);
         return true;
       }
+      if (name === 'photo') {
+        app.openPhoto(n);
+        return true;
+      }
+      if (name === 'ecran') {
+        // Coordonnées à l'écran du centre de la photo n (pour simuler un vrai clic)
+        const f = world.frames[n];
+        if (!f) return null;
+        const v = f.center.clone().project(world.camera);
+        const el = world.renderer.domElement.getBoundingClientRect();
+        return { x: el.left + ((v.x + 1) / 2) * el.width, y: el.top + ((1 - v.y) / 2) * el.height, visible: v.z < 1 && Math.abs(v.x) < 1 && Math.abs(v.y) < 1 };
+      }
       if (name === 'danse') {
         app.startDance();
         return true;

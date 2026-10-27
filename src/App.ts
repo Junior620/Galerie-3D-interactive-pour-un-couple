@@ -4,10 +4,13 @@ import { Companion } from './avatars/Companion';
 import { Couple } from './avatars/Couple';
 import { Navigator } from './avatars/Navigator';
 import { CameraDirector } from './camera/CameraDirector';
+import { framePhoto } from './camera/photoFraming';
 import type { Input } from './controls/Input';
 import { PointerControls } from './controls/PointerControls';
+import type { FrameObject } from './gallery/frames';
 import type { BenchLayout } from './scene/layout';
 import type { World } from './scene/world';
+import { PhotoPanel } from './ui/photoPanel';
 import { Toast } from './ui/toast';
 import { isTouchDevice } from './utils/device';
 
@@ -29,8 +32,17 @@ export class App {
   readonly companion: Companion;
   readonly couple: Couple;
   readonly toast: Toast;
+  readonly panel: PhotoPanel;
   /** Banc occupé (mode assis) */
   bench: BenchLayout | null = null;
+  /** Index (ordre de visite) de la photo regardée en mode photo */
+  photoIndex = -1;
+  /** Mode auquel revenir en quittant la photo */
+  private photoReturn: Mode = 'libre';
+  private readonly raycaster = new THREE.Raycaster();
+  private readonly pickables: THREE.Object3D[] = [];
+  private readonly ndc = new THREE.Vector2();
+  private hoverTimer = 0;
   /** Mode qui vient de changer : on ignore le déplacement le temps de la transition */
   private settleTime = 0;
   private readonly timer = new THREE.Timer();
@@ -53,14 +65,31 @@ export class App {
     this.couple = new Couple(this.navigator);
     this.toast = new Toast(document.getElementById('ui')!);
 
+    this.panel = new PhotoPanel(document.getElementById('ui')!, isTouchDevice());
+    this.panel.onPrev = () => this.stepPhoto(-1);
+    this.panel.onNext = () => this.stepPhoto(1);
+    this.panel.onClose = () => this.closePhoto();
+
     this.pointer.onRotate = (dx, dy) => {
       if (this.mode === 'libre' || this.mode === 'danse') this.director.third.rotate(dx, dy);
     };
     this.pointer.onZoom = (f) => this.director.third.zoom(f);
+    this.pointer.onTap = (x, y) => this.handleTap(x, y);
+
+    // Objets cliquables : photos ; murs et cloison masquent ce qui est derrière.
+    this.pickables.push(...world.frames.map((f) => f.photoMesh));
+    world.museum.group.traverse((o) => {
+      if (o.name === 'murs' || o.name === 'cloison') this.pickables.push(o);
+    });
+    const canvas = world.renderer.domElement;
+    canvas.addEventListener('pointermove', (e) => this.hover(e));
 
     input.on('sit', () => this.toggleSit());
     input.on('dance', () => this.toggleDance());
     input.on('switch', () => this.switchAvatar());
+    input.on('prev', () => this.mode === 'photo' && this.stepPhoto(-1));
+    input.on('next', () => this.mode === 'photo' && this.stepPhoto(1));
+    input.on('escape', () => this.escape());
 
     // Placement initial : les deux avatars côte à côte, tournés vers l'enfilade.
     const { position, yaw } = world.layout.spawn;
@@ -191,6 +220,99 @@ export class App {
     this.toast.show(`Vous guidez ${this.player.label}`);
   }
 
+  /** Échap : quitter le mode en cours. */
+  escape(): void {
+    if (this.mode === 'photo') this.closePhoto();
+    else if (this.mode === 'assis') this.standUp();
+    else if (this.mode === 'danse') this.stopDance();
+  }
+
+  // ------------------------------------------------------------------ photos
+
+  /** Photo sous le pointeur (null si rien, ou si un mur la cache). */
+  pickFrame(x: number, y: number): FrameObject | null {
+    const el = this.world.renderer.domElement;
+    this.ndc.set((x / el.clientWidth) * 2 - 1, -(y / el.clientHeight) * 2 + 1);
+    this.raycaster.setFromCamera(this.ndc, this.world.camera);
+    const hit = this.raycaster.intersectObjects(this.pickables, false)[0];
+    const i = hit?.object.userData.frameIndex as number | undefined;
+    return i === undefined ? null : this.world.frames.find((f) => f.photoMesh === hit!.object) ?? null;
+  }
+
+  private handleTap(x: number, y: number): void {
+    if (this.mode !== 'libre' && this.mode !== 'assis') return;
+    const frame = this.pickFrame(x, y);
+    if (frame) this.openPhoto(this.world.frames.indexOf(frame));
+  }
+
+  /** Curseur « main » au survol d'une photo (ordinateur). */
+  private hover(e: PointerEvent): void {
+    if (e.pointerType !== 'mouse' || e.buttons) return;
+    const now = performance.now();
+    if (now - this.hoverTimer < 90) return;
+    this.hoverTimer = now;
+    const ok = (this.mode === 'libre' || this.mode === 'assis') && !!this.pickFrame(e.offsetX, e.offsetY);
+    this.world.renderer.domElement.style.cursor = ok ? 'pointer' : '';
+  }
+
+  /** La caméra glisse jusqu'à la photo, cadrée plein écran, et le panneau s'affiche. */
+  openPhoto(index: number, duration = 1.5): void {
+    const frame = this.world.frames[index];
+    if (!frame) return;
+    if (this.mode !== 'photo') this.photoReturn = this.mode === 'assis' ? 'assis' : 'libre';
+    this.setMode('photo');
+    this.photoIndex = index;
+    this.toast.hint('');
+    const room = this.world.layout.rooms[frame.room];
+    this.panel.show(frame.photo, this.world.frames.length, `Salle ${room.index + 1} — ${room.nom}`);
+    this.world.textures.ensureFull(frame);
+    // Le panneau vient d'être affiché : on mesure la place qu'il occupe.
+    const cov = this.panel.coverage(this.world.renderer.domElement.parentElement!);
+    const { pos, look } = framePhoto(frame, this.world.camera, cov.right, cov.bottom);
+    this.director.shot(pos, look, duration, 'power3.inOut');
+  }
+
+  stepPhoto(delta: number): void {
+    if (this.mode !== 'photo') return;
+    const n = this.world.frames.length;
+    this.openPhoto((this.photoIndex + delta + n) % n, 1.2);
+  }
+
+  closePhoto(): void {
+    if (this.mode !== 'photo') return;
+    this.panel.hide();
+    this.photoIndex = -1;
+    for (const a of Object.values(this.avatars)) a.object.visible = true;
+    if (this.photoReturn === 'assis' && this.bench) {
+      this.setMode('assis');
+      const bench = this.bench;
+      const f = bench.facing;
+      const along = new THREE.Vector3(f.z, 0, -f.x);
+      const photo = bench.frame ? bench.frame.position.clone() : bench.center.clone().addScaledVector(f, 2.6).setY(1.6);
+      this.director.shot(bench.center.clone().addScaledVector(f, -2.4).addScaledVector(along, 0.7).setY(1.7), photo.lerp(bench.center.clone().setY(0.9), 0.3), 1.4);
+    } else {
+      this.setMode('libre');
+      this.director.follow(1.3);
+    }
+  }
+
+  /** En mode photo, on masque l'avatar qui se trouverait entre la caméra et la photo. */
+  private hideOccluders(): void {
+    const frame = this.world.frames[this.photoIndex];
+    if (!frame) return;
+    const cam = this.world.camera.position;
+    for (const a of Object.values(this.avatars)) {
+      const p = a.position;
+      // Distance de l'avatar au segment caméra → photo, dans le plan horizontal
+      const ax = frame.center.x - cam.x;
+      const az = frame.center.z - cam.z;
+      const len2 = ax * ax + az * az || 1;
+      const t = Math.max(0, Math.min(1, ((p.x - cam.x) * ax + (p.z - cam.z) * az) / len2));
+      const d = Math.hypot(cam.x + ax * t - p.x, cam.z + az * t - p.z);
+      a.object.visible = d > 0.7;
+    }
+  }
+
   // ------------------------------------------------------------------ boucle
 
   /** Vitesse voulue de l'avatar contrôlé, relative à la caméra. */
@@ -218,6 +340,9 @@ export class App {
         break;
       case 'danse':
         if (this.settleTime <= 0 && this.input.moving) this.stopDance();
+        break;
+      case 'photo':
+        this.hideOccluders();
         break;
     }
     this.navigator.update(dt);

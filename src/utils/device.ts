@@ -37,7 +37,11 @@ export function detectDevice(): DeviceProfile {
     : { mobile, maxPixelRatio: 2, shadows: true, textureSize: 2048, spotCount: 10, glass: true, roomLights: true };
 }
 
-/** Vrai si l'écran est tactile (indépendamment du niveau de qualité). */
+/**
+ * Vrai si l'interface doit être tactile : pointeur principal grossier (doigt).
+ * Un PC portable à écran tactile utilisé à la souris reste en mode clavier.
+ */
 export function isTouchDevice(): boolean {
-  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const mq = (q: string) => window.matchMedia?.(q).matches ?? false;
+  return mq('(pointer: coarse)') || (!mq('(any-pointer: fine)') && navigator.maxTouchPoints > 0);
 }

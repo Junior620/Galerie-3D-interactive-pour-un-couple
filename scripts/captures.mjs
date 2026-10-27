@@ -107,6 +107,30 @@ const SCENARIOS = {
     await page.keyboard.press('Escape');
     await wait(2200);
   },
+  async clic(page, vp) {
+    // Vrai clic (ou tap) sur une photo visible depuis la position de départ
+    await waitReady(page);
+    await enter(page);
+    // Première photo dont le centre est visible ET non masqué par un mur
+    let target = null;
+    for (let i = 0; i < 30 && !target; i++) {
+      const p = await page.evaluate((n) => window.__musee?.cmd?.('ecran', n), i);
+      if (!p?.visible) continue;
+      const picked = await page.evaluate(([x, y]) => {
+        const r = document.querySelector('#viewport canvas').getBoundingClientRect();
+        return window.__musee.app.pickFrame(x - r.left, y - r.top)?.photo.numero ?? null;
+      }, [p.x, p.y]);
+      if (picked !== null) target = { ...p, picked };
+    }
+    if (!target) return console.log('  (aucune photo atteignable à cliquer)');
+    console.log(`  Photo visée : n° ${target.picked}`);
+    if (vp === 'mobile') await page.touchscreen.tap(target.x, target.y);
+    else await page.mouse.click(target.x, target.y);
+    await wait(2500);
+    const mode = await page.evaluate(() => window.__musee?.app?.mode);
+    console.log(`  Mode après le clic : ${mode}`);
+    await shot(page, `clic-photo-${vp}`);
+  },
   async assis(page, vp) {
     await waitReady(page);
     await enter(page);
