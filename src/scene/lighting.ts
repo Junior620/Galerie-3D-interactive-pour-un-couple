@@ -23,14 +23,14 @@ export function setupLighting(
   const pmrem = new THREE.PMREMGenerator(renderer);
   const room = new RoomEnvironment();
   scene.environment = pmrem.fromScene(room, 0.04).texture;
-  scene.environmentIntensity = 0.55;
+  scene.environmentIntensity = 0.38;
   room.dispose();
   pmrem.dispose();
 
-  const hemi = new THREE.HemisphereLight(0xffffff, 0xd9d2c5, profile.mobile ? 1.5 : 1.1);
+  const hemi = new THREE.HemisphereLight(0xffffff, 0xcfc6b8, profile.mobile ? 1.25 : 0.75);
   scene.add(hemi);
 
-  const sun = new THREE.DirectionalLight(0xfff6ea, 0.9);
+  const sun = new THREE.DirectionalLight(0xfff6ea, profile.mobile ? 0.8 : 1.5);
   sun.position.set(3, 12, 4);
   sun.castShadow = profile.shadows;
   if (profile.shadows) {

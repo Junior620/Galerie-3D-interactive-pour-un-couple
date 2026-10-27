@@ -9,8 +9,8 @@ export interface MuseumMaterials {
   wall: THREE.MeshStandardMaterial;
   partition: THREE.MeshStandardMaterial;
   floor: THREE.MeshStandardMaterial;
-  ceiling: THREE.MeshStandardMaterial;
-  rail: THREE.MeshStandardMaterial;
+  ceiling: THREE.MeshBasicMaterial;
+  rail: THREE.MeshBasicMaterial;
   plinth: THREE.MeshStandardMaterial;
   wood: THREE.MeshStandardMaterial;
   metal: THREE.MeshStandardMaterial;
@@ -35,8 +35,9 @@ export function getMaterials(anisotropy = 4): MuseumMaterials {
     wall: new THREE.MeshStandardMaterial({ color: 0xf6f4f0, roughness: 0.92 }),
     partition: new THREE.MeshStandardMaterial({ color: 0x34363a, roughness: 0.85 }),
     floor: new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.42, metalness: 0.0, envMapIntensity: 0.9 }),
-    ceiling: new THREE.MeshStandardMaterial({ color: 0x232427, roughness: 0.95 }),
-    rail: new THREE.MeshStandardMaterial({ color: 0x0e0e10, roughness: 0.5, metalness: 0.4 }),
+    // Plafond technique et rails : non éclairés (toujours sombres, et moins coûteux)
+    ceiling: new THREE.MeshBasicMaterial({ color: 0x1e1f22 }),
+    rail: new THREE.MeshBasicMaterial({ color: 0x08080a }),
     plinth: new THREE.MeshStandardMaterial({ color: 0xe4e1db, roughness: 0.7 }),
     wood: new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.55 }),
     metal: new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.4, metalness: 0.7 }),

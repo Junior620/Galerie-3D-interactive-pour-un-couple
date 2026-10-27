@@ -74,6 +74,12 @@ const SCENARIOS = {
     await wait(1200);
     await shot(page, `marche-${vp}`);
   },
+  async plan(page, vp) {
+    await waitReady(page);
+    const res = await page.evaluate(() => window.__musee?.cmd?.('testCollisions'));
+    console.log('  Test collisions / navigation :', JSON.stringify(res));
+    await SCENARIOS.salles(page, vp);
+  },
   async salles(page, vp) {
     await waitReady(page);
     await enter(page);
