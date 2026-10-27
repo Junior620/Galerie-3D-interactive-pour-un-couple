@@ -9,11 +9,9 @@
  * Les images sont écrites dans captures/ (ignoré par git).
  * Code de sortie 1 si une erreur console ou une exception de page est détectée.
  */
-import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { chromium } from 'playwright';
+import { mkdirSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { launchBrowser, startPreview } from './lib/browser.mjs';
 
 const args = process.argv.slice(2);
 const urlArg = args.find((a) => a.startsWith('--url='))?.slice(6);
@@ -250,62 +248,10 @@ async function shot(page, name) {
   console.log(`  📸 ${file}`);
 }
 
-async function startPreview() {
-  const child = spawn(process.execPath, [resolve('node_modules/vite/bin/vite.js'), 'preview', '--port', String(PORT), '--strictPort'], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  await new Promise((res, rej) => {
-    const timer = setTimeout(() => rej(new Error('vite preview ne démarre pas')), 30000);
-    child.stdout.on('data', (d) => {
-      if (String(d).includes(String(PORT))) {
-        clearTimeout(timer);
-        res();
-      }
-    });
-    child.on('exit', (code) => rej(new Error(`vite preview s'est arrêté (${code})`)));
-  });
-  return child;
-}
-
-/**
- * Lance Chromium. Si le navigateur attendu par cette version de Playwright
- * n'est pas installé, on réutilise un Chromium déjà présent dans ms-playwright
- * (ou celui indiqué par la variable CHROMIUM_PATH).
- */
-async function launchBrowser() {
-  const options = {
-    args: ['--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'],
-  };
-  if (process.env.CHROMIUM_PATH) return chromium.launch({ ...options, executablePath: process.env.CHROMIUM_PATH });
-  try {
-    return await chromium.launch(options);
-  } catch (err) {
-    const root =
-      process.platform === 'win32'
-        ? join(process.env.LOCALAPPDATA ?? '', 'ms-playwright')
-        : join(homedir(), process.platform === 'darwin' ? 'Library/Caches/ms-playwright' : '.cache/ms-playwright');
-    const candidates = existsSync(root)
-      ? readdirSync(root)
-          .filter((d) => /^chromium-\d+$/.test(d))
-          .sort((a, b) => Number(b.split('-')[1]) - Number(a.split('-')[1]))
-          .flatMap((d) => [
-            join(root, d, 'chrome-win64', 'chrome.exe'),
-            join(root, d, 'chrome-win', 'chrome.exe'),
-            join(root, d, 'chrome-linux', 'chrome'),
-            join(root, d, 'chrome-mac', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'),
-          ])
-          .filter((p) => existsSync(p))
-      : [];
-    if (!candidates.length) throw err;
-    console.log(`(Chromium de repli : ${candidates[0]})`);
-    return chromium.launch({ ...options, executablePath: candidates[0] });
-  }
-}
-
 async function main() {
   let server = null;
   if (!baseUrl) {
-    server = await startPreview();
+    server = await startPreview(PORT);
     baseUrl = `http://localhost:${PORT}/`;
   }
   const browser = await launchBrowser();

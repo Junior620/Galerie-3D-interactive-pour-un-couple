@@ -46,6 +46,8 @@ export interface MuseeConfig {
   titre: string;
   prenoms: { lui: string; elle: string };
   sousTitre: string;
+  /** Adresse publique du site (aperçu de lien Open Graph) */
+  urlSite: string | null;
   musique: string | null;
   theme: Theme;
   avatars: { lui: AvatarConfig; elle: AvatarConfig };

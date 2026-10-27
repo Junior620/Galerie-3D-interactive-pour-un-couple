@@ -9,6 +9,7 @@
     "build": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json && vite build",
     "preview": "vite preview",
     "photos": "node scripts/optimize-photos.mjs",
+    "og": "node scripts/og-image.mjs",
     "test": "vitest run",
     "captures": "node scripts/captures.mjs"
   },

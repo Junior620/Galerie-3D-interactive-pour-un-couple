@@ -46,6 +46,12 @@ describe('validation de config.json', () => {
     expect(errors.some((e) => e.includes('avatars.lui.coiffure'))).toBe(true);
   });
 
+  it('vérifie l’adresse du site (aperçu de lien)', () => {
+    expect(validateConfig({ ...example, urlSite: 'https://notre-musee.vercel.app/' }).config.urlSite).toBe('https://notre-musee.vercel.app');
+    const { errors } = validateConfig({ ...example, urlSite: 'notre-musee.vercel.app' });
+    expect(errors.some((e) => e.includes('urlSite'))).toBe(true);
+  });
+
   it('détecte un identifiant de salle en double', () => {
     const { errors } = validateConfig({ ...example, salles: [{ id: 'x', nom: 'X' }, { id: 'x', nom: 'Y' }], photos: [] });
     expect(errors.some((e) => e.includes('deux fois'))).toBe(true);

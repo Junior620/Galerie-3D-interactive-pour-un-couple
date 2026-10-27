@@ -44,6 +44,12 @@ export function validateConfig(raw: unknown): ValidationResult {
   const sousTitre = typeof raw.sousTitre === 'string' ? raw.sousTitre : '';
   if (raw.sousTitre !== undefined && typeof raw.sousTitre !== 'string') errors.push('« sousTitre » doit être un texte.');
 
+  let urlSite: string | null = null;
+  if (raw.urlSite !== undefined && raw.urlSite !== null && raw.urlSite !== '') {
+    if (typeof raw.urlSite === 'string' && /^https?:\/\/[^\s]+$/i.test(raw.urlSite)) urlSite = raw.urlSite.replace(/\/+$/, '');
+    else errors.push('« urlSite » doit être une adresse complète (ex. : "https://notre-musee.vercel.app").');
+  }
+
   let musique: string | null = null;
   if (raw.musique !== undefined && raw.musique !== null && raw.musique !== '') {
     if (typeof raw.musique !== 'string') errors.push('« musique » doit être un chemin de fichier (ex. : "assets/music/musique.mp3").');
@@ -163,6 +169,7 @@ export function validateConfig(raw: unknown): ValidationResult {
     titre: String(raw.titre ?? ''),
     prenoms: { lui: String(prenoms.lui ?? ''), elle: String(prenoms.elle ?? '') },
     sousTitre,
+    urlSite,
     musique,
     theme,
     avatars,

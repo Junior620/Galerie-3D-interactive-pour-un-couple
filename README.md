@@ -90,6 +90,7 @@ Exemple complet : voir [`config.json`](config.json). Le fichier est **validé au
 | `titre` | oui | Titre du musée (écran d'accueil, mur d'entrée, onglet). |
 | `prenoms.lui`, `prenoms.elle` | oui | Prénoms affichés à l'accueil et sur les murs. |
 | `sousTitre` | non | Phrase sous le titre. |
+| `urlSite` | non | Adresse publique du site, ex. `"https://notre-musee.vercel.app"`. Sert à l'aperçu des liens partagés (section 7). |
 | `musique` | non | Fichier audio dans `public/`, ex. `"assets/music/musique.mp3"`. Sans fichier, une ambiance douce est **générée en direct** par le navigateur. |
 | `theme` | non | `"clair"` (défaut) ou `"sombre"`. |
 | `avatars` | non | Apparence de « lui » et « elle » (voir ci-dessous). |
@@ -275,6 +276,22 @@ Le workflow `.github/workflows/pages.yml` est fourni mais ne se lance **qu'à la
 1. Sur GitHub : *Settings → Pages → Source : GitHub Actions*.
 2. Onglet *Actions* → « Déployer sur GitHub Pages » → *Run workflow*.
 3. Le site est publié sur `https://<utilisateur>.github.io/<dépôt>/` (les chemins relatifs fonctionnent dans ce sous-dossier).
+
+### Aperçu des liens (Open Graph)
+
+Quand on partage le lien du musée (WhatsApp, Telegram, Messenger, Facebook, X…), une carte s'affiche avec un titre (« Notre Musée — Christian & Gabrielle »), une description et une image 1200 × 630 : titre et prénoms à gauche, le couple devant les grands portraits à droite.
+
+![Image d'aperçu des liens](public/og-image.jpg)
+
+- Les balises sont générées **au build** depuis `config.json` (titre, prénoms, sous-titre).
+- Les réseaux sociaux exigent une adresse d'image **absolue** : renseignez `urlSite` dans `config.json` avec l'adresse définitive du site. Sans ce champ, l'adresse fournie par Vercel (`VERCEL_PROJECT_PRODUCTION_URL`) ou par Netlify (`URL`) est utilisée au moment du build. Sur GitHub Pages, indiquez le chemin complet, par exemple `https://utilisateur.github.io/depot`.
+- L'image `public/og-image.jpg` est une vraie vue du musée. Régénérez-la quand vous changez le titre, les prénoms ou les grands portraits :
+
+```bash
+npm run build && npm run og && npm run build
+```
+
+- Les applications gardent l'aperçu en cache. Pour forcer une mise à jour : [Facebook Sharing Debugger](https://developers.facebook.com/tools/debug/) (« Scrape Again ») ; sur Telegram, envoyez le lien au robot @WebpageBot ; sur WhatsApp, le nouvel aperçu apparaît pour les nouveaux messages (ou en ajoutant `?v=2` au lien).
 
 ### Paramètres d'adresse
 
