@@ -56,6 +56,24 @@ async function start() {
         app.director.shot(pos, mid.clone().setY(1.05), 0.01);
         return true;
       }
+      if (name === 'banc') {
+        // Téléporte le couple près du banc n puis s'assoit
+        const b = world.museum.benches[n]?.layout;
+        if (!b) return false;
+        const p = b.center.clone().addScaledVector(b.facing, 1.2);
+        app.player.position.copy(p);
+        app.partner.position.copy(p).add(new THREE.Vector3(b.facing.z, 0, -b.facing.x).multiplyScalar(1.2));
+        app.sitOn(b);
+        return true;
+      }
+      if (name === 'danse') {
+        app.startDance();
+        return true;
+      }
+      if (name === 'changer') {
+        app.switchAvatar();
+        return true;
+      }
       if (name === 'salle') {
         const r = world.layout.rooms[n];
         if (!r) return false;

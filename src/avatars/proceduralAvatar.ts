@@ -79,6 +79,20 @@ class Parts {
 const capsule = (r: number, len: number) => new THREE.CapsuleGeometry(r, len, 6, 14);
 const sphere = (r: number, w = 20, h = 14) => new THREE.SphereGeometry(r, w, h);
 
+/** Membre conique aux extrémités arrondies (rayon ra en haut, rb en bas), centré. */
+function taper(ra: number, rb: number, len: number, seg = 6): THREE.LatheGeometry {
+  const pts: THREE.Vector2[] = [];
+  for (let i = 0; i <= seg; i++) {
+    const a = -Math.PI / 2 + (Math.PI / 2) * (i / seg);
+    pts.push(new THREE.Vector2(rb * Math.cos(a), -len / 2 + rb * Math.sin(a)));
+  }
+  for (let i = 0; i <= seg; i++) {
+    const a = (Math.PI / 2) * (i / seg);
+    pts.push(new THREE.Vector2(Math.max(0.0001, ra * Math.cos(a)), len / 2 + ra * Math.sin(a)));
+  }
+  return new THREE.LatheGeometry(pts, 16);
+}
+
 let blobTexture: THREE.CanvasTexture | null = null;
 
 /** Ombre de contact douce sous les pieds (toujours présente, même sans ombres dynamiques). */
@@ -158,13 +172,15 @@ export function createProceduralAvatar(cfg: AvatarConfig, who: 'lui' | 'elle', c
   const P = new Parts();
 
   // --- Bassin, ventre, buste ---
-  const pelvisW = (shape.legX + shape.thigh) / 0.15;
-  P.add(hips, bodyBottom, sphere(0.15), [0, -0.03, 0], [0, 0, 0], [pelvisW, 0.66, 0.66]);
-  P.add(spine, top, capsule(0.125, 0.12), [0, 0.07, 0], [0, 0, 0], [shape.waist, 1, 0.62]);
+  const pelvisW = (shape.legX + shape.thigh + 0.012) / 0.15;
+  P.add(hips, bodyBottom, sphere(0.15, 24, 16), [0, -0.035, 0], [0, 0, 0], [pelvisW, 0.78, 0.68]);
+  P.add(spine, top, capsule(0.118, 0.12), [0, 0.07, 0], [0, 0, 0], [shape.waist, 1, 0.6]);
+  // Buste d'une seule pièce, de la taille aux épaules (pas de couture visible).
+  const w = shape.waist;
   const chestProfile = [
-    [0.125, -0.06], [0.14, 0.02], [0.152, 0.1], [0.158, 0.17], [0.15, 0.215], [0.12, 0.245], [0.07, 0.262], [0.001, 0.268],
+    [0.122 * w, -0.27], [0.124 * w, -0.2], [0.13 * w, -0.1], [0.142, 0.0], [0.152, 0.09], [0.158, 0.165], [0.15, 0.215], [0.12, 0.245], [0.07, 0.262], [0.001, 0.268],
   ].map(([x, y]) => new THREE.Vector2(x, y));
-  P.add(chest, top, new THREE.LatheGeometry(chestProfile, 20), [0, 0, 0], [0, 0, 0], [shape.shoulder / 0.158, 1, 0.6]);
+  P.add(chest, top, new THREE.LatheGeometry(chestProfile, 24), [0, 0, 0], [0, 0, 0], [shape.shoulder / 0.158, 1, 0.6]);
   P.add(neck, skin, new THREE.CylinderGeometry(0.046, 0.05, 0.13, 14), [0, 0.03, 0]);
 
   // --- Tête et visage ---
@@ -224,12 +240,13 @@ export function createProceduralAvatar(cfg: AvatarConfig, who: 'lui' | 'elle', c
     const ua = bones[`upperArm${side}`];
     const fa = bones[`foreArm${side}`];
     const hand = bones[`hand${side}`];
-    const sleeve = who === 'lui' ? top : skin; // lui : manches longues, elle : manches courtes
-    P.add(ua, top, sphere(0.058), [0, -0.01, 0]);
-    P.add(ua, top, capsule(shape.arm, 0.11), [0, -0.09, 0]);
-    P.add(ua, sleeve, capsule(shape.arm * 0.92, 0.12), [0, -0.19, 0]);
-    P.add(fa, sleeve, sphere(shape.arm * 0.88), [0, 0, 0]);
-    P.add(fa, sleeve, capsule(shape.arm * 0.82, 0.17), [0, -0.115, 0]);
+    // lui : manches longues ; elle : manches courtes
+    const long = who === 'lui';
+    const arm = long ? top : skin;
+    P.add(ua, top, sphere(shape.arm * 1.12, 18, 12), [0, -0.005, 0]);
+    P.add(ua, arm, taper(shape.arm * 1.02, shape.arm * 0.86, 0.22), [0, -0.135, 0]);
+    if (!long) P.add(ua, top, taper(shape.arm * 1.2, shape.arm * 1.12, 0.07), [0, -0.05, 0]);
+    P.add(fa, arm, taper(shape.arm * 0.86, shape.arm * 0.7, 0.2), [0, -0.11, 0]);
     P.add(hand, skin, sphere(0.045, 14, 10), [0, -0.045, 0.005], [0, 0, 0], [0.72, 1.15, 0.5]);
     P.add(hand, skin, capsule(0.013, 0.03), [s * 0.028, -0.03, 0.018], [0.4, 0, s * 0.5]); // pouce
   }
@@ -239,9 +256,8 @@ export function createProceduralAvatar(cfg: AvatarConfig, who: 'lui' | 'elle', c
     const ul = bones[`upperLeg${side}`];
     const ll = bones[`lowerLeg${side}`];
     const foot = bones[`foot${side}`];
-    P.add(ul, legMat, capsule(shape.thigh, 0.3), [0, -0.2, 0]);
-    P.add(ll, legMat, sphere(shape.thigh * 0.85), [0, 0, 0]);
-    P.add(ll, legMat, capsule(0.052, 0.31), [0, -0.2, 0]);
+    P.add(ul, legMat, taper(shape.thigh * 1.12, shape.thigh * 0.8, 0.36), [0, -0.2, 0]);
+    P.add(ll, legMat, taper(shape.thigh * 0.8, 0.04, 0.36), [0, -0.205, 0]);
     // Chaussure : capsule couchée vers l'avant
     P.add(foot, shoes, capsule(0.046, 0.15), [0, -0.025, 0.05], [Math.PI / 2, 0, 0], [1.08, 1, 0.72]);
   }
