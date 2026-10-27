@@ -80,17 +80,19 @@ Ce script (sharp) :
 - convertit les photos **HEIC/HEIF** (iPhone, Samsung…) en JPEG à côté de l'original, avec leur date de prise de vue. Sous Windows, il utilise le décodeur intégré (extension « Extensions d'image HEIF » du Microsoft Store, généralement déjà présente) ; sous macOS, l'outil `sips`. Les `.heic` d'origine peuvent ensuite être supprimés ;
 - corrige l'orientation EXIF (photos de téléphone prises de côté) ;
 - crée dans `public/photos/optimisees/` une version WebP 2048 px (ordinateur), une version 1024 px (téléphone) et une miniature 320 px (chargée en premier) ;
-- signale les vidéos trop lourdes et les formats non lisibles sur le web (`.mov` HEVC d'iPhone, AVI…) ;
+- prépare pour chaque vidéo MP4/MOV dont l'index est à la fin du fichier (cas fréquent sur téléphone) une copie « lecture immédiate » avec l'index au début, **sans réencodage**. Sans cela, le navigateur doit attendre la fin du téléchargement avant de démarrer ;
+- signale les vidéos trop lourdes, celles en HEVC (H.265, pas lues partout) et les formats non lisibles sur le web (AVI…) ;
 - ne modifie jamais vos originaux, ne refait que ce qui a changé (`--force` pour tout régénérer, `--qualite=85` pour changer la qualité) et supprime les variantes devenues inutiles.
 
 Le site fonctionne aussi sans cette étape (il redimensionne alors les originaux dans le navigateur), mais il charge beaucoup plus vite avec.
 
 À savoir :
-- **Orientation** : le format (portrait, paysage, carré) est détecté à partir des dimensions réelles et de l'EXIF, et la taille du cadre s'y adapte. Pour une vidéo, le format est lu par le navigateur (rotation des vidéos de téléphone comprise).
+- **Orientation** : le format (portrait, paysage, carré) est détecté à partir des dimensions réelles et de l'EXIF, et la taille du cadre s'y adapte. Pour une vidéo MP4/MOV, le format est lu dans le fichier au build (rotation des vidéos de téléphone comprise).
 - **Date** : `date` de `config.json`, sinon date de prise de vue EXIF, sinon date contenue dans le nom du fichier. Dans chaque salle, les photos sont triées par date ; celles sans date suivent, dans l'ordre des noms de fichiers.
-- **Vidéos** : elles sont servies telles quelles (pas de conversion). Gardez-les courtes et légères : moins de 30 Mo conseillé, et GitHub refuse les fichiers de plus de 100 Mo. Pour compresser : [HandBrake](https://handbrake.fr), préréglage « Fast 1080p30 ». Les `.mov` HEVC d'iPhone ne sont pas lus par Chrome sur Android ou Windows : préférez MP4 (H.264), ou réglez l'iPhone sur « Le plus compatible ».
+- **Vidéos** : elles ne sont pas réencodées. Gardez-les courtes et légères : moins de 30 Mo conseillé, et GitHub refuse les fichiers de plus de 100 Mo. Pour compresser : [HandBrake](https://handbrake.fr), préréglage « Fast 1080p30 ». Les vidéos HEVC (H.265), format par défaut de nombreux téléphones, se lisent sur iPhone, Mac, PC Windows récents et la plupart des Android récents ; ailleurs, le cadre affiche une affiche « Vidéo ». Pour une compatibilité totale : MP4 H.264, ou réglage « Le plus compatible » du téléphone.
+- **Ce qui est mis en ligne** : quand une version optimisée existe, l'original n'est pas copié dans `dist/`. Le site ne sert donc que les WebP, sans données EXIF ni position GPS, et les vidéos « lecture immédiate ». Attention : les originaux restent visibles dans le dépôt GitHub s'il est public.
 - **Images de remplacement** : tant qu'aucune vraie photo n'est présente, des images numérotées sont affichées. Dès que vous déposez des fichiers, les exemples de `config.json` sans fichier disparaissent tout seuls.
-- **Après un ajout de photo**, relancez `npm run build` avant de redéployer : la liste des fichiers présents est calculée au build.
+- **Après un ajout de photo ou de vidéo**, relancez `npm run photos` puis `npm run build` avant de redéployer : la liste des fichiers présents est calculée au build.
 
 > ⚠️ **Vie privée** : le dépôt GitHub est **public**. Si vous ne voulez pas publier vos photos sur GitHub, décommentez la ligne `public/photos/` dans `.gitignore` et déployez par glisser-déposer du dossier `dist/` (Netlify). Le site déployé reste visible par toute personne qui a le lien.
 

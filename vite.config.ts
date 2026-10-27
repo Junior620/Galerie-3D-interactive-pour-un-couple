@@ -1,7 +1,7 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
-import { buildManifest, readConfigSafe } from './scripts/lib/manifest.mjs';
+import { buildManifest, readConfigSafe, type Manifest } from './scripts/lib/manifest.mjs';
 
 interface ConfigPartielle {
   titre?: string;
@@ -90,9 +90,14 @@ function museeData(): Plugin {
   const root = process.cwd();
   const configPath = resolve(root, 'config.json');
   const photosDir = resolve(root, 'public', 'photos');
+  let outDir = resolve(root, 'dist');
+  let manifest: Manifest | null = null;
 
   return {
     name: 'notre-musee-donnees',
+    configResolved(c) {
+      outDir = resolve(c.root, c.build.outDir);
+    },
     configureServer(server) {
       server.watcher.add([configPath, photosDir]);
       let timer: ReturnType<typeof setTimeout> | undefined;
@@ -127,8 +132,35 @@ function museeData(): Plugin {
       });
     },
     async generateBundle() {
+      manifest = await buildManifest(root);
       this.emitFile({ type: 'asset', fileName: 'config.json', source: readFileSync(configPath, 'utf8') });
-      this.emitFile({ type: 'asset', fileName: 'musee-manifest.json', source: JSON.stringify(await buildManifest(root)) });
+      this.emitFile({ type: 'asset', fileName: 'musee-manifest.json', source: JSON.stringify(manifest) });
+    },
+    /**
+     * Après le build : on retire de dist/ les originaux devenus inutiles (le
+     * site n'utilise que les versions optimisées, sans données EXIF/GPS) et les
+     * formats non affichables (HEIC…). public/ n'est jamais modifié.
+     */
+    closeBundle() {
+      if (!manifest) return;
+      let removed = 0;
+      let bytes = 0;
+      const drop = (rel: string) => {
+        const f = resolve(outDir, rel);
+        if (!f.startsWith(outDir) || !existsSync(f)) return;
+        bytes += statSync(f).size;
+        rmSync(f);
+        removed++;
+      };
+      for (const [file, m] of Object.entries(manifest.photos)) {
+        if ((m.type === 'image' && m.variantes.hd) || (m.type === 'video' && m.variantes.web)) drop(file);
+      }
+      const walk = (dir: string): string[] =>
+        existsSync(dir) ? readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(resolve(dir, e.name)) : [resolve(dir, e.name)])) : [];
+      for (const f of walk(resolve(outDir, 'photos'))) {
+        if (/\.(heic|heif|dng|avi|mkv|wmv|3gp|mts)$/i.test(f)) drop(f.slice(outDir.length + 1));
+      }
+      if (removed) console.log(`[musée] ${removed} original(aux) non déployé(s) (versions optimisées utilisées) : −${(bytes / 1048576).toFixed(1)} Mo`);
     },
   };
 }

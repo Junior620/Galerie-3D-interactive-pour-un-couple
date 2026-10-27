@@ -162,10 +162,19 @@ const SCENARIOS = {
     const inFrame = await page.evaluate((i) => {
       const f = window.__musee.app.world.frames[i];
       const map = f.photoMesh.material.map;
-      return { videoTexture: !!map?.isVideoTexture, playing: map?.image ? !map.image.paused : false, muted: map?.image?.muted };
+      const v = map?.image;
+      const real = v?.videoWidth ? v.videoWidth / v.videoHeight : null;
+      return {
+        videoTexture: !!map?.isVideoTexture,
+        playing: v ? !v.paused : false,
+        muted: v?.muted,
+        formatCadre: Math.round(f.photo.aspect * 100) / 100,
+        formatVideo: real && Math.round(real * 100) / 100,
+      };
     }, idx);
     console.log(`  Dans le cadre : ${JSON.stringify(inFrame)}`);
     if (!inFrame.videoTexture || !inFrame.playing || !inFrame.muted) consoleIssues.push(`[video/${vp}] la vidéo ne joue pas sans le son dans son cadre`);
+    if (inFrame.formatVideo && Math.abs(inFrame.formatCadre - inFrame.formatVideo) > 0.05) consoleIssues.push(`[video/${vp}] cadre ${inFrame.formatCadre} ≠ vidéo ${inFrame.formatVideo} (image déformée)`);
     await shot(page, `video-salle-${vp}`);
     await cmd(page, 'photo', idx);
     await wait(2500);

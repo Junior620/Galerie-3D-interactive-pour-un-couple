@@ -13,12 +13,13 @@
  * Options : --force (tout régénérer), --qualite=82
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
 import exifr from 'exifr';
 import sharp from 'sharp';
-import { listPhotos, listUnsupported, listVideos, OPT_DIR, readConfigSafe, variantBase, VARIANTS } from './lib/manifest.mjs';
+import { listPhotos, listUnsupported, listVideos, OPT_DIR, readConfigSafe, variantBase, VARIANTS, VIDEO_VARIANT } from './lib/manifest.mjs';
+import { faststart, mp4Info } from './lib/mp4.mjs';
 
 const args = process.argv.slice(2);
 const force = args.includes('--force');
@@ -56,7 +57,20 @@ function checkVideos() {
     else if (mo > 30) console.log(`ℹ ${rel} : ${mo.toFixed(0)} Mo — lourd pour les téléphones en 4G, une version compressée (720p ou 1080p, H.264) est conseillée.`);
     if (/\.mov$/i.test(v)) console.log(`ℹ ${rel} : les .mov d'iPhone (HEVC) ne sont pas lus par Chrome sur Android/Windows ; préférez MP4 (H.264).`);
   }
-  if (videos.length) console.log(`${videos.length} vidéo(s) trouvée(s) (servies telles quelles).`);
+  if (videos.length) console.log(`${videos.length} vidéo(s) trouvée(s).`);
+  const hevc = videos.filter((v) => {
+    try {
+      return /^(hvc1|hev1)$/.test(mp4Info(v)?.codec ?? '');
+    } catch {
+      return false;
+    }
+  });
+  if (hevc.length) {
+    console.log(
+      `ℹ ${hevc.length} vidéo(s) en HEVC (H.265) : lues sur iPhone, Mac, PC Windows récents et la plupart des Android récents ; ` +
+        'ailleurs, le cadre affiche une affiche « Vidéo ». Pour une compatibilité totale : MP4 H.264 (HandBrake, ou réglage « Le plus compatible » du téléphone).',
+    );
+  }
   for (const f of listUnsupported(photosDir)) {
     const rel = relative(photosDir, f).replace(/\\/g, '/');
     const heic = /\.hei[cf]$/i.test(f);
@@ -117,12 +131,48 @@ function exifDate(d) {
   return `${d.getFullYear()}:${p(d.getMonth() + 1)}:${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
+/**
+ * Vidéos MP4/MOV dont l'index est à la fin (cas fréquent sur téléphone) :
+ * copie « lecture immédiate » dans optimisees/ avec l'index au début.
+ * Sans réencodage : l'image et le son sont identiques, seul l'ordre change.
+ */
+function optimizeVideos(videos, expected) {
+  let made = 0;
+  for (const file of videos) {
+    if (!/\.(mp4|m4v|mov)$/i.test(file)) continue;
+    const rel = relative(photosDir, file).replace(/\\/g, '/');
+    let info = null;
+    try {
+      info = mp4Info(file);
+    } catch {
+      /* format non reconnu : servie telle quelle */
+    }
+    if (!info || info.faststart) continue;
+    const name = VIDEO_VARIANT(variantBase(rel));
+    const out = join(optDir, name);
+    expected.add(name);
+    if (!force && existsSync(out) && statSync(out).mtimeMs >= statSync(file).mtimeMs) continue;
+    const buf = readFileSync(file);
+    const fixed = faststart(buf);
+    if (!fixed || fixed.length !== buf.length) {
+      expected.delete(name);
+      console.log(`ℹ ${rel} : réorganisation impossible, vidéo servie telle quelle.`);
+      continue;
+    }
+    writeFileSync(out, fixed);
+    made++;
+    console.log(`✓ ${rel} → lecture immédiate (index déplacé au début, sans réencodage)`);
+  }
+  return made;
+}
+
 async function main() {
   ensureRoomFolders();
   await convertHeic();
   checkVideos();
   const files = listPhotos(photosDir);
-  if (!files.length) {
+  const videos = listVideos(photosDir);
+  if (!files.length && !videos.length) {
     console.log('Aucune photo dans public/photos/ : déposez vos images dans le dossier de chaque salle (rencontre, voyages, nous…) puis relancez « npm run photos ».');
     console.log("En attendant, le musée affiche des images de remplacement.");
     return;
@@ -164,6 +214,7 @@ async function main() {
     }
     console.log(`✓ ${rel}`);
   }
+  const videosMade = optimizeVideos(videos, expected);
 
   // Nettoyage des variantes orphelines
   let removed = 0;
@@ -177,12 +228,10 @@ async function main() {
   console.log(
     `\n${files.length} photo(s) : ${made} variante(s) générée(s), ${skipped} déjà à jour, ${removed} supprimée(s)` +
       (failed ? `, ${failed} échec(s)` : '') +
-      (savedBytes ? `\nGain sur les versions HD : ${(savedBytes / 1024 / 1024).toFixed(1)} Mo` : ''),
+      (savedBytes ? `\nGain sur les versions HD : ${(savedBytes / 1024 / 1024).toFixed(1)} Mo` : '') +
+      (videos.length ? `\n${videos.length} vidéo(s) : ${videosMade} préparée(s) pour une lecture immédiate` : ''),
   );
-  if (failed) {
-    console.log('Astuce : les fichiers HEIC (iPhone) ne sont pas pris en charge, exportez-les en JPEG.');
-    process.exitCode = 1;
-  }
+  if (failed) process.exitCode = 1;
 }
 
 main();

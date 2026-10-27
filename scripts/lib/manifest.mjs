@@ -10,6 +10,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { extname, join, relative } from 'node:path';
 import exifr from 'exifr';
 import sharp from 'sharp';
+import { mp4Info } from './mp4.mjs';
 
 export const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.avif', '.tif', '.tiff']);
 export const VIDEO_EXT = new Set(['.mp4', '.m4v', '.webm', '.mov', '.ogv']);
@@ -25,6 +26,9 @@ export const VARIANTS = {
   md: (base) => `${base}-1024.webp`,
   mini: (base) => `${base}-mini.webp`,
 };
+
+/** Copie « lecture immédiate » d'une vidéo (index déplacé au début). */
+export const VIDEO_VARIANT = (base) => `${base}.mp4`;
 
 /** Liste récursive des fichiers de public/photos ayant l'une des extensions (hors variantes). */
 function listFiles(photosDir, exts) {
@@ -127,11 +131,31 @@ export async function buildManifest(root) {
     photos[`photos/${relPhotos}`] = { type: 'image', ...meta, variantes };
   }
 
-  // Vidéos : copiées telles quelles ; le navigateur lit leurs dimensions
-  // (rotation des vidéos de téléphone comprise) au chargement.
+  // Vidéos : dimensions affichées (rotation comprise) lues dans le fichier MP4,
+  // et copie « lecture immédiate » si npm run photos l'a préparée. Pour les
+  // autres formats (WebM…), le navigateur lit les dimensions au chargement.
   for (const file of listVideos(photosDir)) {
     const relPhotos = relative(photosDir, file).replace(/\\/g, '/');
-    photos[`photos/${relPhotos}`] = { type: 'video', largeur: null, hauteur: null, orientationExif: 1, date: null, taille: statSync(file).size, variantes: {} };
+    let info = null;
+    try {
+      info = /\.(mp4|m4v|mov)$/i.test(file) ? mp4Info(file) : null;
+    } catch {
+      /* fichier non reconnu */
+    }
+    const variantes = {};
+    const web = VIDEO_VARIANT(variantBase(relPhotos));
+    const webPath = join(optDir, web);
+    if (existsSync(webPath) && statSync(webPath).mtimeMs >= statSync(file).mtimeMs - 1000) variantes.web = `photos/${OPT_DIR}/${web}`;
+    photos[`photos/${relPhotos}`] = {
+      type: 'video',
+      largeur: info?.largeur || null,
+      hauteur: info?.hauteur || null,
+      codec: info?.codec || null,
+      orientationExif: 1,
+      date: null,
+      taille: statSync(file).size,
+      variantes,
+    };
   }
 
   // Fichiers optionnels référencés par config.json (musique, modèles 3D)

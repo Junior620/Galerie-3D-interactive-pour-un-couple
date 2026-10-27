@@ -4,9 +4,10 @@ export interface ManifestPhoto {
   largeur: number | null;
   hauteur: number | null;
   taille?: number;
+  codec?: string | null;
   orientationExif: number;
   date: string | null;
-  variantes: { hd?: string; md?: string; mini?: string };
+  variantes: { hd?: string; md?: string; mini?: string; web?: string };
 }
 
 export interface Manifest {

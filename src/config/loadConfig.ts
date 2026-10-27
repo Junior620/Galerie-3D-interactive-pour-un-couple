@@ -58,8 +58,10 @@ export async function loadMusee(profile: DeviceProfile): Promise<Musee> {
   } catch {
     warnings.push('Manifeste des fichiers indisponible : toutes les photos seront remplacées.');
   }
-  // Format des vidéos : lu par le navigateur (il applique la rotation des vidéos de téléphone).
-  const videos = Object.entries(manifest.photos).filter(([, m]) => m.type === 'video').map(([f]) => f);
+  // Format des vidéos : donné par le manifeste (MP4) ; sinon (WebM…), lu par le navigateur.
+  const videos = Object.entries(manifest.photos)
+    .filter(([, m]) => m.type === 'video' && !(m.largeur && m.hauteur))
+    .map(([f]) => f);
   const aspects = new Map<string, number>();
   await Promise.all(
     videos.map(async (f) => {
@@ -173,8 +175,9 @@ export function normalize(
     let sources: Photo['sources'] = null;
     let aspect = 1;
     if (info && video) {
-      aspect = videoAspects.get(p.fichier) ?? 16 / 9;
-      sources = { full: p.fichier };
+      aspect = info.largeur && info.hauteur ? info.largeur / info.hauteur : videoAspects.get(p.fichier) ?? 16 / 9;
+      // Copie « lecture immédiate » (index au début) si npm run photos l'a préparée.
+      sources = { full: info.variantes.web ?? p.fichier };
     } else if (info && info.largeur && info.hauteur) {
       aspect = info.largeur / info.hauteur;
       const v = info.variantes;

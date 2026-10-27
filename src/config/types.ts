@@ -105,9 +105,12 @@ export interface ManifestPhoto {
   largeur: number | null;
   hauteur: number | null;
   taille?: number;
+  /** Codec vidéo (avc1, hvc1…) */
+  codec?: string | null;
   orientationExif: number;
   date: string | null;
-  variantes: { hd?: string; md?: string; mini?: string };
+  /** hd / md / mini : photos WebP ; web : vidéo prête pour une lecture immédiate */
+  variantes: { hd?: string; md?: string; mini?: string; web?: string };
 }
 
 export interface Manifest {
