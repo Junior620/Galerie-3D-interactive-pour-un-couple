@@ -70,9 +70,14 @@ const SCENARIOS = {
   async marche(page, vp) {
     await waitReady(page);
     await enter(page);
+    await shot(page, `depart-${vp}`);
     await cmd(page, 'marcher', 3);
     await wait(1200);
     await shot(page, `marche-${vp}`);
+    await wait(3000);
+    await cmd(page, 'portrait');
+    await wait(1500);
+    await shot(page, `portrait-${vp}`);
   },
   async plan(page, vp) {
     await waitReady(page);

@@ -1,17 +1,18 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import './ui/fonts';
 import './ui/base.css';
 import './ui/ui.css';
+import { App } from './App';
+import { createAvatars } from './avatars/factory';
 import { ConfigError, loadMusee } from './config/loadConfig';
+import { Input } from './controls/Input';
 import { buildWorld } from './scene/world';
 import { showErrorScreen } from './ui/errorScreen';
 import { loadFonts } from './utils/canvasText';
 import { detectDevice } from './utils/device';
 
 /**
- * Étape 3 : musée piloté par config.json, cadres, photos (ou images de
- * remplacement), cartels et spots. Caméra encore libre (OrbitControls).
+ * Point d'entrée : configuration → monde 3D → avatars → application.
  */
 async function start() {
   const profile = detectDevice();
@@ -31,50 +32,41 @@ async function start() {
   const manager = new THREE.LoadingManager();
   const viewport = document.getElementById('viewport')!;
   const world = await buildWorld(viewport, musee, profile, manager);
-  const { camera, renderer, scene, layout, lighting } = world;
-
-  const start = layout.spawn.position;
-  camera.position.set(start.x - 2.5, 2.4, 3.5);
-  const controls = new OrbitControls(camera, renderer.domElement);
-  controls.target.set(start.x + 3, 1.4, 0);
-  controls.enableDamping = true;
-  controls.maxPolarAngle = Math.PI * 0.49;
+  const avatars = await createAvatars(musee, profile, manager);
+  const input = new Input();
+  const app = new App(world, avatars, input);
+  app.start();
 
   // Commandes de test (captures Playwright)
-  const w = window as unknown as { __musee: { ready: boolean; cmd: (name: string, ...a: number[]) => unknown } };
+  const w = window as unknown as { __musee: { ready: boolean; app: App; cmd: (name: string, ...a: number[]) => unknown } };
   w.__musee = {
     ready: true,
+    app,
     cmd(name, n = 0) {
-      if (name === 'salle') {
-        const r = layout.rooms[n];
-        if (!r) return false;
-        camera.position.set(r.x0 + 1.2, 2.5, layout.depth / 2 - 1.2);
-        controls.target.set(r.x1 - 2, 1.4, -layout.depth / 4);
+      if (name === 'marcher') {
+        input.simulate(0, 1, n || 2);
         return true;
       }
-      if (name === 'photo') {
-        const f = world.frames[n];
-        if (!f) return false;
-        const p = f.center.clone().addScaledVector(f.normal, 2.4);
-        camera.position.set(p.x, f.center.y + 0.1, p.z);
-        controls.target.copy(f.center);
+      if (name === 'portrait') {
+        // Plan rapproché, de face, sur le couple
+        const mid = app.player.position.clone().add(app.partner.position).multiplyScalar(0.5);
+        const yaw = app.player.yaw;
+        const pos = mid.clone().add(new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).multiplyScalar(n || 2.6));
+        pos.y = 1.35;
+        app.director.shot(pos, mid.clone().setY(1.05), 0.01);
+        return true;
+      }
+      if (name === 'salle') {
+        const r = world.layout.rooms[n];
+        if (!r) return false;
+        app.player.position.set(r.x0 + 2.2, 0, 0);
+        app.partner.position.set(r.x0 + 2.2, 0, -1.2);
+        app.director.third.snap(app.player.position, app.player.height, Math.PI / 2 - 0.5);
         return true;
       }
       return undefined;
     },
   };
-
-  const timer = new THREE.Timer();
-  timer.connect(document);
-  renderer.setAnimationLoop((time) => {
-    timer.update(time);
-    const dt = Math.min(timer.getDelta(), 0.1);
-    controls.update();
-    lighting.follow(controls.target);
-    world.spots.update(dt, controls.target);
-    world.textures.update(world.roomAt(controls.target.x));
-    renderer.render(scene, camera);
-  });
 }
 
 start();
