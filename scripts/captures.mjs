@@ -81,6 +81,18 @@ const SCENARIOS = {
     await wait(1500);
     await shot(page, `portrait-${vp}`);
   },
+  /** Statistiques de rendu (appels de dessin, triangles, mémoire GPU, i/s). */
+  async perf(page, vp) {
+    for (const q of vp === 'bureau' ? ['haute', 'basse'] : ['basse']) {
+      await page.goto(withParams(baseUrl, `qualite=${q}`));
+      await waitReady(page);
+      await enter(page);
+      await cmd(page, 'marcher', 4);
+      await wait(5000);
+      const s = await page.evaluate(() => window.__musee.cmd('stats'));
+      console.log(`  qualité ${q} : ${JSON.stringify(s)}`);
+    }
+  },
   async plan(page, vp) {
     await waitReady(page);
     const res = await page.evaluate(() => window.__musee?.cmd?.('testCollisions'));

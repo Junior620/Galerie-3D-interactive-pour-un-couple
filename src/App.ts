@@ -410,11 +410,37 @@ export class App {
     return this.wish.multiplyScalar(speed * this.player.rig.scale);
   }
 
+  /**
+   * Résolution adaptative : si l'on passe sous 28 i/s pendant 3 s, on baisse
+   * le pixelRatio par paliers ; on le remonte quand il y a de la marge.
+   */
+  private perf = { timer: 0, low: 0, high: 0 };
+  private adaptResolution(dt: number): void {
+    const p = this.perf;
+    p.timer += dt;
+    if (p.timer < 1) return;
+    p.timer = 0;
+    const r = this.world.renderer;
+    const max = Math.min(window.devicePixelRatio || 1, this.world.profile.maxPixelRatio);
+    const min = Math.min(max, this.world.profile.mobile ? 0.75 : 1);
+    p.low = this.fps < 28 ? p.low + 1 : 0;
+    p.high = this.fps > 56 ? p.high + 1 : 0;
+    const ratio = r.getPixelRatio();
+    if (p.low >= 3 && ratio > min) {
+      r.setPixelRatio(Math.max(min, ratio - 0.25));
+      p.low = 0;
+    } else if (p.high >= 10 && ratio < max) {
+      r.setPixelRatio(Math.min(max, ratio + 0.25));
+      p.high = 0;
+    }
+  }
+
   private update(dt: number): void {
     const { world } = this;
     const collision = world.museum.world;
     this.settleTime = Math.max(0, this.settleTime - dt);
     if (dt > 0) this.fps += (1 / dt - this.fps) * 0.05;
+    this.adaptResolution(dt);
 
     switch (this.mode) {
       case 'libre': {

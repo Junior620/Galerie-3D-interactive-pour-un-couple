@@ -20,6 +20,8 @@ export class ThirdPersonCamera {
   private current = 4;
   private readonly dir = new THREE.Vector3();
   private readonly desired = new THREE.Vector3();
+  private readonly side = new THREE.Vector3();
+  private readonly origin = new THREE.Vector3();
 
   constructor(private readonly world: CollisionWorld) {}
 
@@ -53,7 +55,13 @@ export class ThirdPersonCamera {
 
     const cp = Math.cos(this.pitch);
     this.dir.set(-Math.sin(this.yaw) * cp, Math.sin(this.pitch), -Math.cos(this.yaw) * cp);
-    const hit = this.world.raycast(this.target, this.dir, this.distance + 0.4);
+    // Trois rayons (centre et côtés) : la caméra ne frôle pas les chambranles.
+    let hit = this.world.raycast(this.target, this.dir, this.distance + 0.4);
+    this.side.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw)).multiplyScalar(0.22);
+    for (const s of [1, -1]) {
+      this.origin.copy(this.target).addScaledVector(this.side, s);
+      hit = Math.min(hit, this.world.raycast(this.origin, this.dir, this.distance + 0.4));
+    }
     const allowed = Math.max(0.45, Math.min(this.distance, hit - 0.3));
     if (dt <= 0) this.current = allowed;
     else this.current += (allowed - this.current) * damp(allowed < this.current ? 22 : 3.5, dt);

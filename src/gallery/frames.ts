@@ -76,6 +76,21 @@ export function buildFrames(
     : null;
   const unitPlane = new THREE.PlaneGeometry(1, 1);
 
+  // Optimisation : seules la photo et le cartel (textures uniques) restent des
+  // maillages individuels. Baguettes fusionnées par couleur ; passe-partout,
+  // vitres et halos instanciés → environ 2 appels de dessin par cadre au lieu de 6.
+  const barsBlack: THREE.BufferGeometry[] = [];
+  const barsWhite: THREE.BufferGeometry[] = [];
+  const matXf: THREE.Matrix4[] = [];
+  const glassXf: THREE.Matrix4[] = [];
+  const haloWallXf: THREE.Matrix4[] = [];
+  const haloDarkXf: THREE.Matrix4[] = [];
+  const local = new THREE.Matrix4();
+  const place = (g: THREE.Group, list: THREE.Matrix4[], x: number, y: number, z: number, sx: number, sy: number) => {
+    local.makeScale(sx, sy, 1).setPosition(x, y, z);
+    list.push(g.matrix.clone().multiply(local));
+  };
+
   for (const room of layout.rooms) {
     for (const placed of room.frames) {
       const photo = photosByIndex.get(placed.spec.key);
@@ -86,15 +101,11 @@ export function buildFrames(
       g.name = `cadre-${photo.numero}`;
       g.position.copy(placed.position);
       g.rotation.y = Math.atan2(placed.normal.x, placed.normal.z);
+      g.updateMatrix();
 
-      const frameMesh = new THREE.Mesh(frameGeometry(d, depth), photo.cadre === 'blanc' ? mats.frameWhite : mats.frameBlack);
-      frameMesh.castShadow = false;
-      g.add(frameMesh);
-
-      const mat = new THREE.Mesh(unitPlane, mats.mat);
-      mat.scale.set(d.outerW - 2 * d.border, d.outerH - 2 * d.border, 1);
-      mat.position.z = 0.012;
-      g.add(mat);
+      const bars = frameGeometry(d, depth).applyMatrix4(g.matrix);
+      (photo.cadre === 'blanc' ? barsWhite : barsBlack).push(bars);
+      place(g, matXf, 0, 0, 0.012, d.outerW - 2 * d.border, d.outerH - 2 * d.border);
 
       const photoMesh = new THREE.Mesh(
         new THREE.PlaneGeometry(d.iw, d.ih),
@@ -105,13 +116,7 @@ export function buildFrames(
       photoMesh.userData.frameIndex = frames.length;
       g.add(photoMesh);
 
-      if (glassMat) {
-        const glass = new THREE.Mesh(unitPlane, glassMat);
-        glass.scale.set(d.outerW - 2 * d.border, d.outerH - 2 * d.border, 1);
-        glass.position.z = depth - 0.004;
-        glass.renderOrder = 2;
-        g.add(glass);
-      }
+      if (glassMat) place(g, glassXf, 0, 0, depth - 0.004, d.outerW - 2 * d.border, d.outerH - 2 * d.border);
 
       // Cartel sous le cadre
       const scale = photo.grand ? 1.15 : 1;
@@ -121,13 +126,9 @@ export function buildFrames(
 
       // Halo du spot sur le mur
       const onPartition = placed.wall.startsWith('P');
-      const h = new THREE.Mesh(unitPlane, onPartition ? haloDark : haloWall);
       const hw = Math.min(d.outerW + 1.5, onPartition ? room.partition!.width : 99);
       const hh = Math.min(d.outerH + 1.9, (onPartition ? DIM.partitionH : DIM.wallH) - 0.2);
-      h.scale.set(hw, hh, 1);
-      h.position.set(0, 0.25, 0.003);
-      h.renderOrder = 1;
-      g.add(h);
+      place(g, onPartition ? haloDarkXf : haloWallXf, 0, 0.25, 0.003, hw, hh);
 
       group.add(g);
       const center = placed.position.clone().addScaledVector(placed.normal, 0.014);
@@ -135,6 +136,22 @@ export function buildFrames(
       frames.push({ photo, placed, dims: d, group: g, photoMesh, center, normal: placed.normal.clone(), room: room.index, fixture });
     }
   }
+
+  // Parties communes fusionnées / instanciées
+  if (barsBlack.length) group.add(new THREE.Mesh(mergeGeometries(barsBlack), mats.frameBlack));
+  if (barsWhite.length) group.add(new THREE.Mesh(mergeGeometries(barsWhite), mats.frameWhite));
+  const instanced = (list: THREE.Matrix4[], material: THREE.Material, renderOrder = 0) => {
+    if (!list.length) return;
+    const im = new THREE.InstancedMesh(unitPlane, material, list.length);
+    list.forEach((m, i) => im.setMatrixAt(i, m));
+    im.renderOrder = renderOrder;
+    im.computeBoundingSphere();
+    group.add(im);
+  };
+  instanced(matXf, mats.mat);
+  instanced(haloWallXf, haloWall, 1);
+  instanced(haloDarkXf, haloDark, 1);
+  if (glassMat) instanced(glassXf, glassMat, 2);
 
   // Projecteurs sur rail : deux InstancedMesh (corps + lentille), un seul appel de dessin chacun.
   const body = new THREE.CylinderGeometry(0.05, 0.042, 0.17, 16).rotateX(Math.PI / 2);
