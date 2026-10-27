@@ -36,6 +36,393 @@
   outline-offset: 3px;
 }
 
+kbd {
+  display: inline-block;
+  min-width: 20px;
+  padding: 1px 6px;
+  margin: 0 1px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  border-bottom-width: 2px;
+  background: #fff;
+  color: var(--encre);
+  font: 600 11px/1.5 var(--sans);
+  text-align: center;
+}
+
+/* --- Écran de chargement --- */
+.ecran-chargement {
+  position: absolute;
+  inset: 0;
+  z-index: 90;
+  pointer-events: auto;
+  display: grid;
+  place-items: center;
+  background: var(--papier);
+  transition: opacity 0.7s ease;
+}
+.ecran-chargement.fini {
+  opacity: 0;
+  pointer-events: none;
+}
+.ch-contenu {
+  width: min(420px, 82vw);
+  text-align: center;
+}
+.ch-surtitre,
+.ac-surtitre {
+  margin: 0 0 10px;
+  font: 600 11px/1.4 var(--sans);
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--encre-douce);
+}
+.ch-titre {
+  margin: 0 0 34px;
+  font: 300 clamp(36px, 7vw, 56px) / 1.05 var(--serif);
+}
+.ch-barre {
+  height: 2px;
+  background: rgba(29, 28, 26, 0.12);
+  overflow: hidden;
+  border-radius: 2px;
+}
+.ch-barre span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--encre);
+  transition: width 0.3s ease;
+}
+.ch-etat {
+  display: flex;
+  justify-content: space-between;
+  margin: 12px 0 0;
+  font: 400 12px/1.4 var(--sans);
+  color: var(--encre-douce);
+}
+
+/* --- Écran d'accueil (posé sur la scène 3D vivante) --- */
+.ecran-accueil {
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  pointer-events: auto;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: linear-gradient(to bottom, rgba(246, 244, 240, 0.5) 0%, rgba(246, 244, 240, 0.95) 24%, rgba(246, 244, 240, 0.95) 76%, rgba(246, 244, 240, 0.5) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  opacity: 0;
+  transition: opacity 0.9s ease, backdrop-filter 0.9s ease;
+}
+.ecran-accueil.visible {
+  opacity: 1;
+}
+.ecran-accueil.fini {
+  opacity: 0;
+  pointer-events: none;
+}
+.ac-contenu {
+  max-width: 640px;
+  text-align: center;
+}
+.ac-titre {
+  margin: 0;
+  font: 300 clamp(48px, 11vw, 104px) / 0.95 var(--serif);
+  letter-spacing: -0.01em;
+}
+.ac-prenoms {
+  margin: 16px 0 0;
+  font: italic 400 clamp(24px, 4.5vw, 38px) / 1.2 var(--serif);
+  color: #6d5f50;
+}
+.ac-sous-titre {
+  margin: 16px 0 0;
+  font: 500 12px/1.6 var(--sans);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--encre-douce);
+}
+.ac-entrer {
+  margin-top: 40px;
+  padding: 17px 36px;
+  font-size: 16px;
+}
+.ac-aide,
+.ac-son {
+  margin: 22px 0 0;
+  font: 400 13px/1.5 var(--sans);
+  color: var(--encre-douce);
+}
+.ac-son {
+  margin-top: 6px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* --- Interface en jeu --- */
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+.hud.visible {
+  opacity: 1;
+}
+.hud > * {
+  pointer-events: auto;
+}
+.hud-salle {
+  position: absolute;
+  top: calc(20px + var(--sat));
+  left: calc(22px + var(--sal));
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 16px 9px;
+  border-radius: 12px;
+  background: var(--papier-voile);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(20, 18, 15, 0.08);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.5s, transform 0.5s;
+}
+.hud-salle.visible {
+  opacity: 1;
+  transform: none;
+}
+.hs-num {
+  font: 600 10px/1.4 var(--sans);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--encre-douce);
+}
+.hs-nom {
+  font: 400 24px/1.1 var(--serif);
+}
+.hud-boutons {
+  position: absolute;
+  top: calc(16px + var(--sat));
+  right: calc(16px + var(--sar));
+  display: flex;
+  gap: 8px;
+}
+.hud-btn {
+  appearance: none;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--papier-voile);
+  backdrop-filter: blur(8px);
+  color: var(--encre);
+  box-shadow: 0 4px 16px rgba(20, 18, 15, 0.1);
+  cursor: pointer;
+  transition: transform 0.15s, background 0.2s;
+}
+.hud-btn:hover {
+  transform: translateY(-1px);
+  background: #fff;
+}
+.hud-btn:focus-visible,
+.hud-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.hud-actions {
+  display: none;
+}
+.hud-aide-rapide {
+  position: absolute;
+  left: 50%;
+  bottom: calc(22px + var(--sab));
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: var(--papier-voile);
+  backdrop-filter: blur(8px);
+  font: 400 12px/1.6 var(--sans);
+  color: var(--encre-douce);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.8s;
+}
+.hud-aide-rapide.visible {
+  opacity: 1;
+}
+.hud[data-mode='photo'] .hud-salle,
+.hud[data-mode='photo'] .hud-actions,
+.hud[data-mode='photo'] .hud-aide-rapide {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Contrôles tactiles : boutons d'action à droite */
+.hud.tactile .hud-actions {
+  position: absolute;
+  right: calc(16px + var(--sar));
+  bottom: calc(22px + var(--sab));
+  display: grid;
+  grid-template-columns: repeat(2, 64px);
+  gap: 10px;
+  transition: opacity 0.3s;
+}
+.hud-action {
+  appearance: none;
+  width: 64px;
+  height: 64px;
+  border: none;
+  border-radius: 18px;
+  background: var(--papier-voile);
+  backdrop-filter: blur(8px);
+  color: var(--encre);
+  box-shadow: 0 4px 18px rgba(20, 18, 15, 0.12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font: 600 10px/1.1 var(--sans);
+  cursor: pointer;
+  transition: transform 0.12s, background 0.2s, color 0.2s;
+}
+.hud-action:active {
+  transform: scale(0.94);
+}
+.hud-action.actif {
+  background: var(--encre);
+  color: var(--papier);
+}
+.hud-action.pret {
+  box-shadow: 0 0 0 2px var(--accent), 0 4px 18px rgba(20, 18, 15, 0.12);
+}
+.hud-action.inactif {
+  opacity: 0.6;
+}
+.hud.tactile .hud-boutons [data-hud='tour'],
+.hud.tactile .hud-boutons [data-hud='music'] {
+  display: none;
+}
+.hud.tactile .hs-nom {
+  font-size: 21px;
+}
+
+/* Joystick virtuel */
+.joystick {
+  position: absolute;
+  left: calc(26px + var(--sal));
+  bottom: calc(30px + var(--sab));
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  background: rgba(246, 244, 240, 0.55);
+  border: 1px solid rgba(29, 28, 26, 0.12);
+  backdrop-filter: blur(6px);
+  touch-action: none;
+  display: grid;
+  place-items: center;
+  transition: opacity 0.3s;
+  z-index: 10;
+  pointer-events: auto;
+}
+.joystick.cache {
+  opacity: 0;
+  pointer-events: none;
+}
+.joystick-bouton {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--encre);
+  opacity: 0.78;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  transition: transform 0.08s;
+}
+.joystick.actif .joystick-bouton {
+  transition: none;
+  opacity: 0.9;
+}
+
+/* --- Fenêtre d'aide --- */
+.aide {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(29, 28, 26, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+.aide.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+.aide-carte {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: 90%;
+  overflow: auto;
+  padding: 30px 32px;
+  background: var(--papier);
+  border-radius: var(--rayon);
+  box-shadow: var(--ombre);
+}
+.aide-carte h2 {
+  margin: 0 0 18px;
+  font: 400 34px/1 var(--serif);
+}
+.aide-carte ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.aide-carte li {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 16px;
+  align-items: center;
+  font: 400 14px/1.4 var(--sans);
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(29, 28, 26, 0.08);
+}
+.aide-carte .touches {
+  color: var(--encre-douce);
+}
+.aide-fermer {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--encre);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+@media (max-width: 520px) {
+  .aide-carte li {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}
+
 /* --- Messages éphémères et indices --- */
 .toast,
 .indice {
@@ -78,6 +465,17 @@
 .indice.visible {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+@media (pointer: coarse) {
+  .toast {
+    bottom: calc(184px + var(--sab));
+    max-width: calc(100vw - 32px);
+    white-space: normal;
+    text-align: center;
+  }
+  .indice {
+    bottom: calc(232px + var(--sab));
+  }
 }
 
 /* --- Panneau d'information d'une photo --- */
@@ -184,6 +582,7 @@
 .ecran-erreur {
   position: absolute;
   inset: 0;
+  pointer-events: auto;
   overflow: auto;
   background: var(--papier);
   padding: calc(48px + var(--sat)) 24px 48px;

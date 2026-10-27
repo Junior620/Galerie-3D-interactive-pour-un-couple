@@ -53,9 +53,12 @@ export class CameraDirector {
     });
   }
 
-  /** Retour à la troisième personne, en gardant l'angle de vue actuel. */
-  follow(duration = 1.1): Promise<void> {
-    if (this.mode !== 'follow') {
+  /**
+   * Retour à la troisième personne. Par défaut on garde l'angle de vue actuel ;
+   * keepAngle = false conserve l'angle déjà réglé sur third (ex. derrière l'avatar).
+   */
+  follow(duration = 1.1, keepAngle = true): Promise<void> {
+    if (this.mode !== 'follow' && keepAngle) {
       const d = this.dir.subVectors(this.look, this.pos);
       if (d.x * d.x + d.z * d.z > 1e-4) this.third.yaw = Math.atan2(d.x, d.z);
     }

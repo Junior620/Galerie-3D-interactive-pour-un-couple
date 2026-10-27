@@ -4,12 +4,15 @@ import { Companion } from './avatars/Companion';
 import { Couple } from './avatars/Couple';
 import { Navigator } from './avatars/Navigator';
 import { CameraDirector } from './camera/CameraDirector';
+import type { Music } from './audio/Music';
 import { framePhoto } from './camera/photoFraming';
 import type { Input } from './controls/Input';
+import { Joystick } from './controls/Joystick';
 import { PointerControls } from './controls/PointerControls';
 import type { FrameObject } from './gallery/frames';
 import type { BenchLayout } from './scene/layout';
 import type { World } from './scene/world';
+import { Hud } from './ui/hud';
 import { PhotoPanel } from './ui/photoPanel';
 import { Toast } from './ui/toast';
 import { isTouchDevice } from './utils/device';
@@ -24,8 +27,13 @@ const BENCH_RANGE = 1.5;
  * Orchestrateur : boucle de rendu, avatar contrôlé, compagnon, caméra et modes.
  */
 export class App {
-  mode: Mode = 'libre';
+  mode: Mode = 'accueil';
   controlled: Who = 'lui';
+  readonly touch = isTouchDevice();
+  /** Images par seconde (moyenne glissante) */
+  fps = 60;
+  readonly hud: Hud;
+  readonly joystick: Joystick | null;
   readonly director: CameraDirector;
   readonly pointer: PointerControls;
   readonly navigator: Navigator;
@@ -56,8 +64,20 @@ export class App {
     readonly world: World,
     readonly avatars: Record<Who, Avatar>,
     readonly input: Input,
+    readonly music: Music,
   ) {
     const collision = world.museum.world;
+    const ui = document.getElementById('ui')!;
+    this.hud = new Hud(ui, this.touch, {
+      tour: () => this.toggleTour(),
+      switchAvatar: () => this.switchAvatar(),
+      music: () => this.toggleMusic(),
+      sit: () => this.toggleSit(),
+      dance: () => this.toggleDance(),
+    });
+    this.joystick = this.touch ? new Joystick(ui, input) : null;
+    this.joystick?.setVisible(false);
+    input.movementEnabled = false;
     this.director = new CameraDirector(world.camera, collision);
     this.pointer = new PointerControls(world.renderer.domElement);
     this.navigator = new Navigator(collision, world.museum.nav);
@@ -90,6 +110,9 @@ export class App {
     input.on('prev', () => this.mode === 'photo' && this.stepPhoto(-1));
     input.on('next', () => this.mode === 'photo' && this.stepPhoto(1));
     input.on('escape', () => this.escape());
+    input.on('music', () => this.mode !== 'accueil' && this.toggleMusic());
+    input.on('help', () => this.mode !== 'accueil' && this.hud.toggleHelp());
+    input.on('tour', () => this.toggleTour());
 
     // Placement initial : les deux avatars côte à côte, tournés vers l'enfilade.
     const { position, yaw } = world.layout.spawn;
@@ -102,8 +125,41 @@ export class App {
       a.object.rotation.y = yaw;
     }
     this.director.third.snap(this.player.position, this.player.height, yaw);
-    this.director.jump(this.director.third.position, this.director.third.target);
+    // Écran d'accueil : plan de face sur le couple, le titre du musée derrière eux.
+    const mid = this.player.position.clone().addScaledVector(left, 0.6);
+    const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+    const welcomePos = mid.clone().addScaledVector(fwd, 3.6).setY(1.45);
+    this.director.jump(welcomePos, mid.clone().setY(1.5));
+    this.director.shot(welcomePos, mid.clone().setY(1.5), 0);
     this.timer.connect(document);
+    this.onModeChange((m) => {
+      this.hud.setMode(m);
+      this.joystick?.setVisible(m !== 'photo' && m !== 'accueil');
+    });
+  }
+
+  /** « Entrer dans le musée » : musique (geste utilisateur), interface, caméra derrière l'avatar. */
+  enter(): void {
+    if (this.mode !== 'accueil') return;
+    this.music.start();
+    this.hud.setMusic(!this.music.muted);
+    this.setMode('libre');
+    this.hud.show();
+    // Travelling d'introduction : de face vers l'arrière de l'avatar.
+    this.director.third.yaw = this.player.yaw;
+    this.director.follow(2.8, false);
+  }
+
+  toggleMusic(): void {
+    const on = this.music.toggle();
+    this.hud.setMusic(on);
+    this.toast.show(on ? 'Musique activée' : 'Musique coupée', 1400);
+  }
+
+  /** Visite guidée (branchée à l'étape suivante). */
+  toggleTour(): void {
+    if (this.mode === 'accueil') return;
+    this.toast.show('La visite guidée arrive bientôt');
   }
 
   get player(): Avatar {
@@ -127,7 +183,7 @@ export class App {
     if (this.mode === mode) return;
     this.mode = mode;
     this.settleTime = 0.35;
-    this.input.movementEnabled = mode !== 'photo';
+    this.input.movementEnabled = mode !== 'photo' && mode !== 'accueil';
     this.listeners.forEach((fn) => fn(mode));
   }
 
@@ -170,15 +226,29 @@ export class App {
     this.setMode('assis');
     this.bench = bench;
     this.toast.hint('');
-    const f = bench.facing;
-    const along = new THREE.Vector3(f.z, 0, -f.x);
-    const photo = bench.frame ? bench.frame.position.clone() : bench.center.clone().addScaledVector(f, 2.6).setY(1.6);
-    const camPos = bench.center.clone().addScaledVector(f, -2.4).addScaledVector(along, 0.7).setY(1.7);
-    const look = photo.clone().lerp(bench.center.clone().setY(0.9), 0.3);
-    this.director.shot(camPos, look, 2.2);
+    this.sitShot(bench, 2.2);
     const ok = await this.couple.sit(this.player, this.partner, bench);
     if (ok && this.mode === 'assis') this.toast.show(isTouchDevice() ? 'Touchez le joystick pour vous relever' : 'Une touche de déplacement pour vous relever');
     return ok;
+  }
+
+  /**
+   * Plan « assis » : derrière le couple, la photo au-dessus d'eux. On recule
+   * davantage sur un écran vertical, sans jamais passer derrière un mur.
+   */
+  sitShot(bench: BenchLayout, duration: number): Promise<void> {
+    const f = bench.facing;
+    const along = new THREE.Vector3(f.z, 0, -f.x);
+    const photo = bench.frame ? bench.frame.position.clone() : bench.center.clone().addScaledVector(f, 2.6).setY(1.6);
+    const portrait = Math.max(1, 1.25 / this.world.camera.aspect);
+    let back = 2.4 * Math.pow(portrait, 0.6);
+    const origin = bench.center.clone().setY(1.7);
+    const dir = f.clone().negate().addScaledVector(along, 0.28).normalize();
+    back = Math.min(back, this.world.museum.world.raycast(origin, dir, back + 0.5) - 0.4);
+    const camPos = origin.clone().addScaledVector(dir, back);
+    camPos.y = 1.7 + (portrait - 1) * 0.25;
+    const look = photo.lerp(bench.center.clone().setY(0.9), portrait > 1.2 ? 0.42 : 0.3);
+    return this.director.shot(camPos, look, duration);
   }
 
   standUp(): void {
@@ -220,9 +290,10 @@ export class App {
     this.toast.show(`Vous guidez ${this.player.label}`);
   }
 
-  /** Échap : quitter le mode en cours. */
+  /** Échap : fermer l'aide, sinon quitter le mode en cours. */
   escape(): void {
-    if (this.mode === 'photo') this.closePhoto();
+    if (this.hud.helpOpen) this.hud.toggleHelp(false);
+    else if (this.mode === 'photo') this.closePhoto();
     else if (this.mode === 'assis') this.standUp();
     else if (this.mode === 'danse') this.stopDance();
   }
@@ -285,11 +356,7 @@ export class App {
     for (const a of Object.values(this.avatars)) a.object.visible = true;
     if (this.photoReturn === 'assis' && this.bench) {
       this.setMode('assis');
-      const bench = this.bench;
-      const f = bench.facing;
-      const along = new THREE.Vector3(f.z, 0, -f.x);
-      const photo = bench.frame ? bench.frame.position.clone() : bench.center.clone().addScaledVector(f, 2.6).setY(1.6);
-      this.director.shot(bench.center.clone().addScaledVector(f, -2.4).addScaledVector(along, 0.7).setY(1.7), photo.lerp(bench.center.clone().setY(0.9), 0.3), 1.4);
+      this.sitShot(this.bench, 1.4);
     } else {
       this.setMode('libre');
       this.director.follow(1.3);
@@ -328,13 +395,17 @@ export class App {
     const { world } = this;
     const collision = world.museum.world;
     this.settleTime = Math.max(0, this.settleTime - dt);
+    if (dt > 0) this.fps += (1 / dt - this.fps) * 0.05;
 
     switch (this.mode) {
-      case 'libre':
+      case 'libre': {
         this.player.move(this.wishVelocity(), dt, collision);
         this.companion.update(dt, this.partner, this.player);
-        this.toast.hint(this.nearestBench() ? (isTouchDevice() ? 'Banc à proximité : touchez « S’asseoir »' : '<kbd>E</kbd> S’asseoir sur le banc') : '');
+        const near = !!this.nearestBench();
+        this.toast.hint(near && !this.touch ? '<kbd>E</kbd> S’asseoir sur le banc' : '');
+        this.hud.setBenchNear(near);
         break;
+      }
       case 'assis':
         if (this.settleTime <= 0 && this.input.moving) this.standUp();
         break;
@@ -350,6 +421,10 @@ export class App {
     for (const a of Object.values(this.avatars)) a.update(dt);
 
     const p = this.player.position;
+    if (this.mode !== 'accueil') {
+      const r = world.roomAt(p.x);
+      this.hud.setRoom(r, world.layout.rooms[r].nom);
+    }
     this.director.update(dt, p, this.player.height);
     world.lighting.follow(p);
     world.spots.update(dt, this.mode === 'photo' ? world.camera.position : p);

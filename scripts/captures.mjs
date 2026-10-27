@@ -47,7 +47,9 @@ async function waitReady(page, timeout = 60000) {
 /** Clique sur « Entrer dans le musée » si l'écran d'accueil est présent. */
 async function enter(page) {
   const btn = page.locator('[data-action="entrer"]');
+  await btn.first().waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
   if (await btn.count()) {
+    await wait(1000); // fondu d'apparition de l'écran d'accueil
     await btn.first().click({ timeout: 10000 }).catch(() => {});
     await wait(4500);
   }
@@ -106,6 +108,13 @@ const SCENARIOS = {
     await shot(page, `photo-suivante-${vp}`);
     await page.keyboard.press('Escape');
     await wait(2200);
+  },
+  async aide(page, vp) {
+    await waitReady(page);
+    await enter(page);
+    await page.locator('[data-hud="help"]').click();
+    await wait(600);
+    await shot(page, `aide-${vp}`);
   },
   async clic(page, vp) {
     // Vrai clic (ou tap) sur une photo visible depuis la position de départ

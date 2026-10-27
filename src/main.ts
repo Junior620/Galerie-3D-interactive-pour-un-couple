@@ -3,100 +3,85 @@ import './ui/fonts';
 import './ui/base.css';
 import './ui/ui.css';
 import { App } from './App';
+import { Music } from './audio/Music';
 import { createAvatars } from './avatars/factory';
 import { ConfigError, loadMusee } from './config/loadConfig';
+import type { Musee } from './config/types';
 import { Input } from './controls/Input';
 import { buildWorld } from './scene/world';
 import { showErrorScreen } from './ui/errorScreen';
+import { LoadingScreen, WelcomeScreen } from './ui/screens';
 import { loadFonts } from './utils/canvasText';
-import { detectDevice } from './utils/device';
+import { detectDevice, isTouchDevice } from './utils/device';
+import { installTestHooks } from './testHooks';
 
 /**
- * Point d'entrée : configuration → monde 3D → avatars → application.
+ * Point d'entrée : chargement (barre de progression réelle) → configuration
+ * → monde 3D → avatars → écran d'accueil → visite.
  */
 async function start() {
+  const ui = document.getElementById('ui')!;
+  const loading = new LoadingScreen(ui);
+  loading.set(0.02, 'Lecture de la configuration…');
+
+  if (!webglAvailable()) {
+    loading.remove();
+    showErrorScreen('WebGL n’est pas disponible', [
+      'Votre navigateur ou votre appareil ne permet pas l’affichage 3D (WebGL 2).',
+      'Essayez une version récente de Chrome, Edge, Firefox ou Safari, et activez l’accélération matérielle.',
+    ]);
+    return;
+  }
+
   const profile = detectDevice();
   await loadFonts();
 
-  let musee;
+  let musee: Musee;
   try {
     musee = await loadMusee(profile);
   } catch (e) {
+    loading.remove();
     if (e instanceof ConfigError) {
       showErrorScreen('La configuration contient des erreurs', e.problems, 'Corrigez config.json (à la racine du projet) puis rechargez la page.');
       return;
     }
     throw e;
   }
+  document.title = musee.config.titre;
+  loading.setTitle(musee.config.titre);
+  loading.set(0.08, 'Accrochage des photos…');
 
+  // Toutes les ressources (photos, modèles) passent par ce LoadingManager.
   const manager = new THREE.LoadingManager();
+  manager.onProgress = (_url, loaded, total) => loading.set(0.08 + 0.8 * (loaded / Math.max(1, total)));
+
   const viewport = document.getElementById('viewport')!;
   const world = await buildWorld(viewport, musee, profile, manager);
+  loading.set(0.9, 'Arrivée des visiteurs…');
   const avatars = await createAvatars(musee, profile, manager);
   const input = new Input();
-  const app = new App(world, avatars, input);
-  app.start();
+  const music = new Music(musee.config.musique && musee.hasFile(musee.config.musique) ? musee.config.musique : null);
+  const app = new App(world, avatars, input, music);
 
-  // Commandes de test (captures Playwright)
-  const w = window as unknown as { __musee: { ready: boolean; app: App; cmd: (name: string, ...a: number[]) => unknown } };
-  w.__musee = {
-    ready: true,
-    app,
-    cmd(name, n = 0) {
-      if (name === 'marcher') {
-        input.simulate(0, 1, n || 2);
-        return true;
-      }
-      if (name === 'portrait') {
-        // Plan rapproché, de face, sur le couple
-        const mid = app.player.position.clone().add(app.partner.position).multiplyScalar(0.5);
-        const yaw = app.player.yaw;
-        const pos = mid.clone().add(new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).multiplyScalar(n || 2.6));
-        pos.y = 1.35;
-        app.director.shot(pos, mid.clone().setY(1.05), 0.01);
-        return true;
-      }
-      if (name === 'banc') {
-        // Téléporte le couple près du banc n puis s'assoit
-        const b = world.museum.benches[n]?.layout;
-        if (!b) return false;
-        const p = b.center.clone().addScaledVector(b.facing, 1.2);
-        app.player.position.copy(p);
-        app.partner.position.copy(p).add(new THREE.Vector3(b.facing.z, 0, -b.facing.x).multiplyScalar(1.2));
-        app.sitOn(b);
-        return true;
-      }
-      if (name === 'photo') {
-        app.openPhoto(n);
-        return true;
-      }
-      if (name === 'ecran') {
-        // Coordonnées à l'écran du centre de la photo n (pour simuler un vrai clic)
-        const f = world.frames[n];
-        if (!f) return null;
-        const v = f.center.clone().project(world.camera);
-        const el = world.renderer.domElement.getBoundingClientRect();
-        return { x: el.left + ((v.x + 1) / 2) * el.width, y: el.top + ((1 - v.y) / 2) * el.height, visible: v.z < 1 && Math.abs(v.x) < 1 && Math.abs(v.y) < 1 };
-      }
-      if (name === 'danse') {
-        app.startDance();
-        return true;
-      }
-      if (name === 'changer') {
-        app.switchAvatar();
-        return true;
-      }
-      if (name === 'salle') {
-        const r = world.layout.rooms[n];
-        if (!r) return false;
-        app.player.position.set(r.x0 + 2.2, 0, 0);
-        app.partner.position.set(r.x0 + 2.2, 0, -1.2);
-        app.director.third.snap(app.player.position, app.player.height, Math.PI / 2 - 0.5);
-        return true;
-      }
-      return undefined;
-    },
-  };
+  // Compilation des shaders avant d'afficher la scène (évite un à-coup à l'entrée).
+  loading.set(0.95, 'Derniers réglages…');
+  await world.renderer.compileAsync(world.scene, world.camera).catch(() => undefined);
+  app.start();
+  await loading.hide();
+
+  new WelcomeScreen(ui, musee.config, isTouchDevice(), () => app.enter());
+  installTestHooks(app);
 }
 
-start();
+function webglAvailable(): boolean {
+  try {
+    return !!document.createElement('canvas').getContext('webgl2');
+  } catch {
+    return false;
+  }
+}
+
+start().catch((err) => {
+  console.error(err);
+  showErrorScreen('Le musée n’a pas pu s’ouvrir', [err instanceof Error ? err.message : String(err)], 'Rechargez la page. Si le problème persiste, vérifiez config.json et les fichiers du dossier public/.');
+});
