@@ -35,6 +35,8 @@ export class Avatar {
   busy = false;
   private readonly actions = new Map<AnimName, THREE.AnimationAction>();
   private readonly tmp = new THREE.Vector3();
+  /** move() a été appelé depuis la dernière image */
+  private moved = false;
 
   constructor(
     readonly who: Who,
@@ -106,6 +108,7 @@ export class Avatar {
    * on résout les collisions, puis on choisit Idle / Walk / Run selon la vitesse réelle.
    */
   move(desired: THREE.Vector3, dt: number, world: CollisionWorld): number {
+    this.moved = true;
     const k = damp(desired.lengthSq() > this.velocity.lengthSq() ? 9 : 12, dt);
     this.velocity.x += (desired.x - this.velocity.x) * k;
     this.velocity.z += (desired.z - this.velocity.z) * k;
@@ -138,6 +141,13 @@ export class Avatar {
   }
 
   update(dt: number): void {
+    // Personne ne l'a déplacé pendant cette image (arrivée devant une photo,
+    // mode photo…) : il s'arrête au lieu de continuer à marcher sur place.
+    if (!this.moved && !this.busy) {
+      this.velocity.set(0, 0, 0);
+      if (this.current === 'Walk' || this.current === 'Run') this.play('Idle', 0.3);
+    }
+    this.moved = false;
     this.yaw = lerpAngle(this.yaw, this.targetYaw, damp(this.busy ? 6 : 11, dt));
     this.object.rotation.y = this.yaw;
     this.mixer.update(dt);

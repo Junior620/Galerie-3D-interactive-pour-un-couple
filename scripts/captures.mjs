@@ -168,7 +168,16 @@ const SCENARIOS = {
     await waitReady(page);
     await enter(page);
     await cmd(page, 'visite');
-    await wait(9000);
+    // Pendant la pause devant la première photo (plan fixe), les avatars doivent être immobiles.
+    const ok = await page
+      .waitForFunction(() => window.__musee.app.director.mode === 'shot', null, { timeout: 30000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!ok) consoleIssues.push(`[visite/${vp}] la visite n'atteint pas la première photo`);
+    await wait(1200);
+    const anims = await page.evaluate(() => [window.__musee.app.player.current, window.__musee.app.partner.current]);
+    console.log(`  Animations pendant la pause : ${anims.join(' / ')}`);
+    if (anims.some((a) => a !== 'Idle')) consoleIssues.push(`[visite/${vp}] avatars non immobiles devant la photo : ${anims.join(' / ')}`);
     await shot(page, `visite-${vp}`);
   },
   /** Visite complète accélérée : vérifie qu'elle va jusqu'à la danse finale. */
