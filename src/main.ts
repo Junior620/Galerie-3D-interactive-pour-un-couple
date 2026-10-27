@@ -21,6 +21,12 @@ import { installTestHooks } from './testHooks';
  */
 async function start() {
   const ui = document.getElementById('ui')!;
+  const params = new URLSearchParams(location.search);
+  // ?format=9x16 : rendu vertical centré, sans interface (vidéos Reels / TikTok / Status)
+  const vertical = params.get('format') === '9x16';
+  const pauseParam = Number(params.get('pause'));
+  const tourPause = Number.isFinite(pauseParam) && pauseParam > 0 ? Math.min(20, pauseParam) : undefined;
+  if (vertical) document.getElementById('app')!.classList.add('vertical');
   const loading = new LoadingScreen(ui);
   loading.set(0.02, 'Lecture de la configuration…');
 
@@ -61,7 +67,7 @@ async function start() {
   const avatars = await createAvatars(musee, profile, manager);
   const input = new Input();
   const music = new Music(musee.config.musique && musee.hasFile(musee.config.musique) ? musee.config.musique : null);
-  const app = new App(world, avatars, input, music);
+  const app = new App(world, avatars, input, music, { vertical, tourPause });
 
   // Compilation des shaders avant d'afficher la scène (évite un à-coup à l'entrée).
   loading.set(0.95, 'Derniers réglages…');
@@ -69,8 +75,31 @@ async function start() {
   app.start();
   await loading.hide();
 
-  new WelcomeScreen(ui, musee.config, isTouchDevice(), () => app.enter());
+  if (vertical) {
+    // Un clic reste nécessaire pour autoriser le son ; ensuite plus aucune interface.
+    showVerticalStart(ui, () => {
+      document.body.classList.add('enregistrement');
+      app.enter();
+      setTimeout(() => app.toggleTour(true), 3000);
+    });
+  } else {
+    new WelcomeScreen(ui, musee.config, isTouchDevice(), () => app.enter());
+  }
   installTestHooks(app);
+}
+
+/** Mode vertical : invite minimale « Cliquer pour démarrer ». */
+function showVerticalStart(ui: HTMLElement, onStart: () => void): void {
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = 'depart-vertical';
+  el.dataset.action = 'entrer';
+  el.innerHTML = '<span>Cliquer pour démarrer la visite</span><small>Format 9:16 — enregistrez la zone verticale de l’écran</small>';
+  el.addEventListener('click', () => {
+    el.remove();
+    onStart();
+  });
+  ui.appendChild(el);
 }
 
 function webglAvailable(): boolean {

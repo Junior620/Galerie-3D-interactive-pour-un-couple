@@ -5,6 +5,7 @@ import { Couple } from './avatars/Couple';
 import { Navigator } from './avatars/Navigator';
 import { CameraDirector } from './camera/CameraDirector';
 import type { Music } from './audio/Music';
+import { GuidedTour } from './camera/GuidedTour';
 import { framePhoto } from './camera/photoFraming';
 import type { Input } from './controls/Input';
 import { Joystick } from './controls/Joystick';
@@ -16,6 +17,14 @@ import { Hud } from './ui/hud';
 import { PhotoPanel } from './ui/photoPanel';
 import { Toast } from './ui/toast';
 import { isTouchDevice } from './utils/device';
+import { damp, lerpAngle } from './utils/math';
+
+export interface AppOptions {
+  /** Mode vidéo 9:16 : aucune interface, visite automatique */
+  vertical?: boolean;
+  /** Pause devant chaque photo pendant la visite (s) */
+  tourPause?: number;
+}
 
 /** Modes de l'application (un seul actif à la fois). */
 export type Mode = 'accueil' | 'libre' | 'photo' | 'assis' | 'danse' | 'visite';
@@ -41,6 +50,7 @@ export class App {
   readonly couple: Couple;
   readonly toast: Toast;
   readonly panel: PhotoPanel;
+  readonly tour: GuidedTour;
   /** Banc occupé (mode assis) */
   bench: BenchLayout | null = null;
   /** Index (ordre de visite) de la photo regardée en mode photo */
@@ -65,9 +75,11 @@ export class App {
     readonly avatars: Record<Who, Avatar>,
     readonly input: Input,
     readonly music: Music,
+    readonly options: AppOptions = {},
   ) {
     const collision = world.museum.world;
     const ui = document.getElementById('ui')!;
+    this.tour = new GuidedTour(this);
     this.hud = new Hud(ui, this.touch, {
       tour: () => this.toggleTour(),
       switchAvatar: () => this.switchAvatar(),
@@ -75,15 +87,17 @@ export class App {
       sit: () => this.toggleSit(),
       dance: () => this.toggleDance(),
     });
-    this.joystick = this.touch ? new Joystick(ui, input) : null;
+    this.joystick = this.touch && !options.vertical ? new Joystick(ui, input) : null;
     this.joystick?.setVisible(false);
     input.movementEnabled = false;
+    if (options.vertical) this.hud.hideAll();
     this.director = new CameraDirector(world.camera, collision);
     this.pointer = new PointerControls(world.renderer.domElement);
     this.navigator = new Navigator(collision, world.museum.nav);
     this.companion = new Companion(collision, world.museum.nav);
     this.couple = new Couple(this.navigator);
     this.toast = new Toast(document.getElementById('ui')!);
+    this.toast.enabled = !options.vertical;
 
     this.panel = new PhotoPanel(document.getElementById('ui')!, isTouchDevice());
     this.panel.onPrev = () => this.stepPhoto(-1);
@@ -144,7 +158,7 @@ export class App {
     this.music.start();
     this.hud.setMusic(!this.music.muted);
     this.setMode('libre');
-    this.hud.show();
+    if (!this.options.vertical) this.hud.show();
     // Travelling d'introduction : de face vers l'arrière de l'avatar.
     this.director.third.yaw = this.player.yaw;
     this.director.follow(2.8, false);
@@ -156,10 +170,14 @@ export class App {
     this.toast.show(on ? 'Musique activée' : 'Musique coupée', 1400);
   }
 
-  /** Visite guidée (branchée à l'étape suivante). */
-  toggleTour(): void {
+  /** Visite guidée : démarre depuis n'importe quel mode, ou s'arrête. */
+  toggleTour(endless = false): void {
     if (this.mode === 'accueil') return;
-    this.toast.show('La visite guidée arrive bientôt');
+    if (this.tour.running) return this.tour.stop();
+    if (this.mode === 'photo') this.closePhoto();
+    if (this.mode === 'assis') this.standUp();
+    if (this.mode === 'danse') this.stopDance();
+    this.tour.start({ pause: this.options.tourPause, endless });
   }
 
   get player(): Avatar {
@@ -293,6 +311,7 @@ export class App {
   /** Échap : fermer l'aide, sinon quitter le mode en cours. */
   escape(): void {
     if (this.hud.helpOpen) this.hud.toggleHelp(false);
+    else if (this.mode === 'visite') this.tour.stop();
     else if (this.mode === 'photo') this.closePhoto();
     else if (this.mode === 'assis') this.standUp();
     else if (this.mode === 'danse') this.stopDance();
@@ -414,6 +433,14 @@ export class App {
         break;
       case 'photo':
         this.hideOccluders();
+        break;
+      case 'visite':
+        if (this.settleTime <= 0 && this.input.moving && !this.options.vertical) this.tour.stop();
+        // Caméra de marche : se replace doucement derrière l'avatar.
+        else if (this.director.mode === 'follow' && this.player.velocity.lengthSq() > 0.2) {
+          const t = this.director.third;
+          t.yaw = lerpAngle(t.yaw, this.player.yaw, damp(1.6, dt));
+        }
         break;
     }
     this.navigator.update(dt);

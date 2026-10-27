@@ -161,6 +161,40 @@ const SCENARIOS = {
     await wait(9000);
     await shot(page, `visite-${vp}`);
   },
+  /** Visite complète accélérée : vérifie qu'elle va jusqu'à la danse finale. */
+  async 'visite-complete'(page, vp) {
+    if (vp !== 'bureau') return;
+    await page.goto(withParams(baseUrl, 'pause=0.3'));
+    await waitReady(page);
+    await enter(page);
+    await cmd(page, 'visite');
+    const t0 = Date.now();
+    let last = '';
+    let bancs = 0;
+    while (Date.now() - t0 < 6 * 60 * 1000) {
+      const s = await page.evaluate(() => {
+        const a = window.__musee.app;
+        return { mode: a.mode, step: a.tour.step, running: a.tour.running, sit: a.player.current, fps: Math.round(a.fps) };
+      });
+      const key = `${s.step}`;
+      if (key !== last) {
+        console.log(`  étape ${s.step === -1 ? 'finale' : s.step + 1} (mode ${s.mode}, ${s.fps} i/s)`);
+        last = key;
+        if (s.step === -1) {
+          await wait(4000);
+          await shot(page, `visite-finale-${vp}`);
+        }
+      }
+      if (s.sit === 'SitIdle' || s.sit === 'Sit') bancs = Math.max(bancs, 1);
+      if (!s.running) {
+        console.log(`  ✓ visite terminée en ${Math.round((Date.now() - t0) / 1000)} s, mode final : ${s.mode}${bancs ? ', passage assis observé' : ''}`);
+        return;
+      }
+      await wait(500);
+    }
+    console.log('  ✗ la visite ne s’est pas terminée à temps');
+    consoleIssues.push('[visite-complete] délai dépassé');
+  },
   async erreur(page, vp) {
     // Config volontairement invalide, servie à la place de config.json
     await page.route('**/config.json', (route) =>

@@ -7,6 +7,8 @@ export class Toast {
   private readonly hintEl: HTMLDivElement;
   private timer = 0;
   private hintText = '';
+  /** Désactivé en mode vidéo 9:16 (image sans interface) */
+  enabled = true;
 
   constructor(root: HTMLElement) {
     this.el = document.createElement('div');
@@ -19,6 +21,7 @@ export class Toast {
   }
 
   show(text: string, ms = 2600): void {
+    if (!this.enabled) return;
     this.el.textContent = text;
     this.el.classList.add('visible');
     clearTimeout(this.timer);
@@ -27,6 +30,7 @@ export class Toast {
 
   /** Indice persistant (chaîne vide pour masquer). */
   hint(text: string): void {
+    if (!this.enabled) text = '';
     if (text === this.hintText) return;
     this.hintText = text;
     if (text) this.hintEl.innerHTML = text;

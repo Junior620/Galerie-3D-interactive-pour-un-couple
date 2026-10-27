@@ -578,6 +578,40 @@ kbd {
   }
 }
 
+/* --- Mode vidéo vertical 9:16 --- */
+#app.vertical {
+  background: #000;
+}
+#app.vertical #viewport {
+  width: min(100vw, calc(100vh * 9 / 16));
+  height: min(100vh, calc(100vw * 16 / 9));
+  flex: none;
+}
+.depart-vertical {
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  pointer-events: auto;
+  appearance: none;
+  border: none;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  font: 500 18px/1.4 var(--sans);
+}
+.depart-vertical small {
+  font-size: 12px;
+  opacity: 0.75;
+}
+body.enregistrement #viewport canvas {
+  cursor: none;
+}
+
 /* --- Écran d'erreur --- */
 .ecran-erreur {
   position: absolute;
