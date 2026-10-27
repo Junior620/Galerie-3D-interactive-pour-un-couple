@@ -1,0 +1,15 @@
+node_modules/
+dist/
+captures/
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Fichiers bruts (FBX Mixamo, etc.) avant conversion
+public/assets/raw/
+
+# Le dépôt GitHub est PUBLIC : décommentez la ligne suivante pour ne pas
+# publier vos photos personnelles (le build local les inclura quand même).
+# public/photos/
